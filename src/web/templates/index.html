@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Top Action Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Upload Card -->
+        <div class="lg:col-span-2 bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-xl">
+            <h2 class="text-lg font-semibold text-white mb-2 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                Upload Codebase Archive
+            </h2>
+            <p class="text-sm text-slate-400 mb-6">
+                Upload a .zip codebase archive. The Dispatcher will provision an ephemeral sandbox to run AST scanning (<code class="text-indigo-300 font-mono">cm find</code>), live PoC exploit verification (<code class="text-indigo-300 font-mono">cm verify</code>), and patch generation (<code class="text-indigo-300 font-mono">cm fix</code>).
+            </p>
+
+            <form id="uploadForm" enctype="multipart/form-data" class="space-y-4">
+                <div class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-8 text-center cursor-pointer transition bg-slate-900/50" id="dropZone">
+                    <input type="file" name="file" id="fileInput" accept=".zip,.tar.gz" class="hidden" required>
+                    <svg class="w-12 h-12 mx-auto text-slate-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <p class="text-sm font-medium text-slate-300" id="fileLabel">Drag & drop your archive here, or <span class="text-indigo-400 underline">browse</span></p>
+                    <p class="text-xs text-slate-500 mt-1">Supports .zip (max 100MB)</p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <label class="text-sm text-slate-400">Runtime Flavor:</label>
+                        <select name="language_flavor" class="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="polyglot" selected>Polyglot (All Runtimes)</option>
+                            <option value="python">Python 3.11</option>
+                            <option value="node">Node.js 20</option>
+                            <option value="go">Go 1.22</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg shadow-lg transition flex items-center justify-center space-x-2">
+                        <span>Dispatch Security Scan</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Security Sandbox Info Card -->
+        <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-xl flex flex-col justify-between">
+            <div>
+                <h3 class="text-base font-semibold text-white mb-3 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    Confined Sandbox Posture
+                </h3>
+                <ul class="space-y-2.5 text-xs text-slate-300">
+                    <li class="flex items-start">
+                        <span class="text-emerald-400 mr-2 font-bold">&check;</span>
+                        <span><strong>Zero Egress:</strong> Public internet denied during PoC detonation.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-emerald-400 mr-2 font-bold">&check;</span>
+                        <span><strong>Ephemeral Compute:</strong> Containers destroyed immediately post-run.</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-emerald-400 mr-2 font-bold">&check;</span>
+                        <span><strong>AST Pre-Filter:</strong> Local redaction of secrets and string literals before gRPC stream.</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="mt-6 pt-4 border-t border-slate-700/60 text-xs text-slate-500">
+                Reasoning: Gemini Enterprise Platform
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Scans Table -->
+    <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-xl">
+        <h2 class="text-lg font-semibold text-white mb-4">Recent Scans</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-slate-900/60 text-slate-400 border-b border-slate-700">
+                    <tr>
+                        <th class="px-4 py-3">Scan ID</th>
+                        <th class="px-4 py-3">Codebase</th>
+                        <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3">Stage</th>
+                        <th class="px-4 py-3">Findings / Verified</th>
+                        <th class="px-4 py-3">Patches</th>
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/50">
+                    {% for scan in scans %}
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="px-4 py-3 font-mono text-xs text-indigo-400">{{ scan.id }}</td>
+                        <td class="px-4 py-3">{{ scan.source_filename or 'Direct Upload' }}</td>
+                        <td class="px-4 py-3">
+                            {% if scan.status == 'COMPLETED' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-emerald-900/60 text-emerald-300 border border-emerald-700">COMPLETED</span>
+                            {% elif scan.status == 'RUNNING' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-amber-900/60 text-amber-300 border border-amber-700 animate-pulse">RUNNING</span>
+                            {% elif scan.status == 'FAILED' %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-rose-900/60 text-rose-300 border border-rose-700">FAILED</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-slate-700 text-slate-300">{{ scan.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs text-slate-400">{{ scan.stage }}</td>
+                        <td class="px-4 py-3">{{ scan.vulnerabilities_found }} found / {{ scan.vulnerabilities_verified }} verified</td>
+                        <td class="px-4 py-3 text-emerald-400 font-semibold">{{ scan.patches_applied }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-500">{{ scan.created_at[:16].replace('T', ' ') if scan.created_at else '-' }}</td>
+                        <td class="px-4 py-3 text-right">
+                            <a href="/scans/{{ scan.id }}" class="text-xs text-indigo-400 hover:text-indigo-300 underline font-medium">View Console &rarr;</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-slate-500 text-sm">No scans performed yet. Upload an archive above to get started.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileLabel = document.getElementById('fileLabel');
+    const uploadForm = document.getElementById('uploadForm');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        if (fileInput.files.length > 0) {
+            fileLabel.textContent = `Selected: ${fileInput.files[0].name}`;
+        }
+    });
+
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(uploadForm);
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Uploading & Spawning...</span>';
+
+        try {
+            const resp = await fetch('/api/v1/scans', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            if (resp.ok && data.session_id) {
+                window.location.href = `/scans/${data.session_id}`;
+            } else {
+                alert(`Upload failed: ${data.error || 'Unknown error'}`);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Dispatch Security Scan</span>';
+            }
+        } catch (err) {
+            alert(`Error dispatching scan: ${err}`);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Dispatch Security Scan</span>';
+        }
+    });
+</script>
+{% endblock %}

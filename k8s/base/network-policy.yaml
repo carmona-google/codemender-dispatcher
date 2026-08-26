@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-and-quarantine
+  namespace: codemender-executors
+spec:
+  podSelector:
+    matchLabels:
+      app: codemender-executor
+  policyTypes:
+    - Ingress
+    - Egress
+  # Ingress: Completely denied (Sandboxes do not accept inbound traffic)
+  ingress: []
+  # Egress: Strictly isolated
+  egress:
+    # 1. Allow CoreDNS resolution within kube-system
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+    # 2. Block all RFC1918 private subnets and Node Metadata Server
+    # Public Internet & VPC Egress is denied by default unless matching explicitly allowed CIDRs

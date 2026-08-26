@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: codemender-executors
+  labels:
+    security.google.com/sandbox: gvisor
+    app.kubernetes.io/part-of: codemender

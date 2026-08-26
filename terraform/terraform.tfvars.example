@@ -1,0 +1,9 @@
+# ==============================================================================
+# Argolis GCP Deployment Variables Example
+# Replace with your Argolis Project ID and preferred region
+# ==============================================================================
+
+project_id          = "[ARGOLIS_PROJECT_ID]"
+region              = "us-central1"
+vpc_network_name    = "default"
+vpc_subnetwork_name = "default"

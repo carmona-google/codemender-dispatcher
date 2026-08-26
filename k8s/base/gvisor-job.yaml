@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: codemender-sandbox-template
+  namespace: codemender-executors
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: codemender-executor
+      annotations:
+        autopilot.gke.io/sandbox: gvisor
+    spec:
+      runtimeClassName: gvisor
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: executor
+          image: gcr.io/codemender-prod/codemender-executor:polyglot
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: CODEMENDER_STAGE
+              value: "all"
+            - name: CODEMENDER_SESSION_ID
+              value: "JOB_SESSION_ID"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          volumeMounts:
+            - name: runtime-state
+              mountPath: /run/codemender/state
+            - name: config-ro
+              mountPath: /home/cm/.codemender/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: runtime-state
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+        - name: config-ro
+          configMap:
+            name: codemender-runtime-config

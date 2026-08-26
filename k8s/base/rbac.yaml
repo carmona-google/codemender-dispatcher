@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codemender-executor-ksa
+  namespace: codemender-executors
+  annotations:
+    iam.gke.io/gcp-service-account: codemender-executor-sa@codemender-prod.iam.gserviceaccount.com
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: codemender-executor-role
+  namespace: codemender-executors
+rules:
+  # Ephemeral executor pods have zero read/write permissions to other resources in the cluster
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: codemender-executor-binding
+  namespace: codemender-executors
+subjects:
+  - kind: ServiceAccount
+    name: codemender-executor-ksa
+    namespace: codemender-executors
+roleRef:
+  kind: Role
+  name: codemender-executor-role
+  apiGroup: rbac.authorization.k8s.io
