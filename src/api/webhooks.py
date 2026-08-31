@@ -153,7 +153,7 @@ def github_webhook():
             )
 
             publisher = ITSMPubSubPublisher(
-                project_id=current_app.config.get("PUBSUB_PROJECT_ID", "codemender-prod"),
+                project_id=current_app.config.get("PUBSUB_PROJECT_ID", "generic-security-project"),
                 topic_id=current_app.config.get("PUBSUB_TOPIC_ID", "codemender-security-events"),
                 enable_mock=True,
             )
@@ -161,7 +161,7 @@ def github_webhook():
                 event_id=f"fb-{uuid.uuid4().hex[:8]}",
                 event_type=feedback_event_type,
                 timestamp_utc=pr.get("closed_at", ""),
-                project_id=current_app.config.get("PUBSUB_PROJECT_ID", "codemender-prod"),
+                project_id=current_app.config.get("PUBSUB_PROJECT_ID", "generic-security-project"),
                 session_id=f"feedback-pr-{pr_number}",
                 finding=VulnerabilityFindingMetadata(
                     finding_id=f"FIND-PR-{pr_number}",
@@ -217,7 +217,7 @@ def github_webhook():
             storage_dir = Path(current_app.config["STORAGE_DIR"])
             docker_socket = current_app.config.get("DOCKER_SOCKET_PATH", "/var/run/docker.sock")
             enable_mock = current_app.config.get("ENABLE_MOCK_FALLBACK", True)
-            pubsub_project = current_app.config.get("PUBSUB_PROJECT_ID", "codemender-prod")
+            pubsub_project = current_app.config.get("PUBSUB_PROJECT_ID", "generic-security-project")
             pubsub_topic = current_app.config.get("PUBSUB_TOPIC_ID", "codemender-security-events")
             gh_token = current_app.config.get("GITHUB_TOKEN", "")
 

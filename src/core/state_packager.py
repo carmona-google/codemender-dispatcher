@@ -12,8 +12,12 @@ from typing import Optional, Dict, Any
 class StatePackager:
     """Packages and cryptographically signs ~/.codemender state across distributed runs."""
 
-    def __init__(self, signing_secret: str = "codemender-default-state-key-change-in-prod"):
-        self.signing_secret = signing_secret
+    def __init__(self, signing_secret: Optional[str] = None):
+        self.signing_secret = signing_secret or os.environ.get("CODEMENDER_STATE_SECRET")
+        if not self.signing_secret:
+            if os.environ.get("FLASK_ENV") == "production":
+                raise RuntimeError("CRITICAL: CODEMENDER_STATE_SECRET must be configured in production.")
+            self.signing_secret = "dev-insecure-state-key"
 
     def package_state(self, state_dir: Path, output_archive_path: Path) -> Dict[str, Any]:
         """Compresses state directory into a tar.gz archive and produces an HMAC signature."""

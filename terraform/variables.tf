@@ -1,7 +1,6 @@
 variable "project_id" {
   type        = string
-  description = "Google Cloud Project ID"
-  default     = "codemender-prod"
+  description = "Google Cloud Project ID (e.g., your-argolis-project-id)"
 }
 
 variable "region" {

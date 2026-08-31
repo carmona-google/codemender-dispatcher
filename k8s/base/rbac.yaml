@@ -3,8 +3,6 @@ kind: ServiceAccount
 metadata:
   name: codemender-executor-ksa
   namespace: codemender-executors
-  annotations:
-    iam.gke.io/gcp-service-account: codemender-executor-sa@codemender-prod.iam.gserviceaccount.com
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

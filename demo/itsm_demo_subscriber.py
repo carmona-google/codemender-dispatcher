@@ -6,6 +6,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -16,9 +17,13 @@ from src.itsm.schemas import EventType
 class ITSMDemoSubscriber:
     """Simulates enterprise ITSM ingestion (Jira / ServiceNow / Chronicle SIEM)."""
 
-    def __init__(self, project_id: str = "carmona-codelab-ai", topic_id: str = "codemender-security-events"):
-        self.project_id = project_id
-        self.topic_id = topic_id
+    def __init__(
+        self,
+        project_id: Optional[str] = None,
+        topic_id: Optional[str] = None,
+    ):
+        self.project_id = project_id or os.environ.get("GCP_PROJECT_ID", "generic-security-project")
+        self.topic_id = topic_id or os.environ.get("PUBSUB_TOPIC_ID", "codemender-security-events")
         self.jira_tickets = {}
         self.snow_incidents = {}
 

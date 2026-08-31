@@ -3,6 +3,7 @@
 import os
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List, Dict, Any
@@ -86,14 +87,19 @@ class DatabaseManager:
             self.db_path = self.db_path.replace("sqlite:///", "")
         self.init_schema()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self):
+        """Context manager yielding SQLite connection and guaranteeing deterministic close."""
         if self.db_path != ":memory:":
             db_dir = os.path.dirname(os.path.abspath(self.db_path))
             if db_dir:
                 os.makedirs(db_dir, exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def init_schema(self):
         """Creates tables if they do not exist."""

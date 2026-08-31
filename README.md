@@ -107,7 +107,7 @@ codemender_dispatcher/
 
 ### 1. Launch Dispatcher Server
 ```bash
-cd /google/src/cloud/carmona/codemender_demo/google3/experimental/users/carmona/codemender_dispatcher
+cd codemender_dispatcher
 PYTHONPATH=. FLASK_APP=src.app flask run --host=0.0.0.0 --port=8080
 ```
 Open `http://localhost:8080` in your browser to test drag-and-drop zip uploads or send GitHub PR webhooks.

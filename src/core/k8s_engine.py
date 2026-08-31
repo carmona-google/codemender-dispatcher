@@ -46,7 +46,7 @@ class K8sJobOrchestrator:
     def generate_job_manifest(
         self,
         session_id: str,
-        image_name: str = "gcr.io/codemender-prod/codemender-executor:polyglot",
+        image_name: str = "codemender-executor:polyglot",
         stage: str = "all",
     ) -> Dict[str, Any]:
         """Generates a hardened Kubernetes Job manifest specification for GKE Autopilot."""
@@ -144,7 +144,7 @@ class K8sJobOrchestrator:
         self,
         session_id: str,
         paths: Dict[str, Path],
-        image_name: str = "gcr.io/codemender-prod/codemender-executor:polyglot",
+        image_name: str = "codemender-executor:polyglot",
         stage: str = "all",
     ) -> Generator[str, None, int]:
         """Provisions the GKE batch Job and streams execution logs."""

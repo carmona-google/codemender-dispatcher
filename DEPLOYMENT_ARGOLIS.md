@@ -69,7 +69,7 @@ gcloud services enable \
 Navigate to the `terraform/` directory and configure `terraform.tfvars`:
 
 ```bash
-cd /google/src/cloud/carmona/codemender_demo/google3/experimental/users/carmona/codemender_dispatcher/terraform
+cd codemender_dispatcher/terraform
 
 cp terraform.tfvars.example terraform.tfvars
 ```
@@ -124,7 +124,7 @@ kubectl get nodes
 Apply the base and overlay Kustomize configurations to deploy the `codemender-executors` namespace with Cilium default-deny NetworkPolicies and gVisor specs:
 
 ```bash
-cd /google/src/cloud/carmona/codemender_demo/google3/experimental/users/carmona/codemender_dispatcher
+cd codemender_dispatcher
 
 kubectl apply -k k8s/overlays/gke-autopilot/
 ```
@@ -159,6 +159,6 @@ Access the Web Portal at `http://localhost:8080` to orchestrate scans directly a
 To destroy all provisioned resources in your Argolis project:
 
 ```bash
-cd /google/src/cloud/carmona/codemender_demo/google3/experimental/users/carmona/codemender_dispatcher/terraform
+cd codemender_dispatcher/terraform
 terraform destroy -auto-approve
 ```

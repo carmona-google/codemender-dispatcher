@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: executor
-          image: gcr.io/codemender-prod/codemender-executor:polyglot
+          image: codemender-executor:polyglot
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
