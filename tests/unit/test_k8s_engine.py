@@ -19,7 +19,7 @@ class TestK8sJobOrchestrator(unittest.TestCase):
     def test_job_manifest_security_specs(self):
         manifest = self.orchestrator.generate_job_manifest(
             session_id="sec-session-42",
-            image_name="gcr.io/codemender-prod/codemender-executor:polyglot",
+            image_name="codemender-executor:polyglot",
             stage="all",
         )
 
