@@ -1,6 +1,7 @@
 """Kubernetes (GKE Autopilot) Batch Job Orchestrator with gVisor Sandbox Isolation."""
 
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Dict, Generator, Any, Optional
@@ -101,6 +102,7 @@ class K8sJobOrchestrator:
                                 "env": [
                                     {"name": "CODEMENDER_STAGE", "value": stage},
                                     {"name": "CODEMENDER_SESSION_ID", "value": session_id},
+                                    {"name": "CODEMENDER_MODEL", "value": os.environ.get("CODEMENDER_MODEL", "gemini-3.7-flash")},
                                 ],
                                 "resources": {
                                     "requests": {"cpu": "2", "memory": "2Gi", "ephemeral-storage": "1Gi"},
