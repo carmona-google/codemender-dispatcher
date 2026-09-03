@@ -71,6 +71,7 @@ class DockerOrchestrator:
         environment = {
             "CODEMENDER_STAGE": stage,
             "CODEMENDER_SESSION_ID": session_id,
+            "CODEMENDER_MODEL": os.environ.get("CODEMENDER_MODEL", "gemini-3.7-flash"),
         }
         tmpfs = {"/run/codemender/state": "size=128M,exec"}
 

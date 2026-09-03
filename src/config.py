@@ -38,6 +38,9 @@ class Config:
     PUBSUB_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "generic-security-project")
     PUBSUB_TOPIC_ID = os.environ.get("PUBSUB_TOPIC_ID", "codemender-security-events")
 
+    # LLM Model configuration
+    CODEMENDER_MODEL = os.environ.get("CODEMENDER_MODEL", "gemini-3.7-flash")
+
     # Upload constraints
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100 MB max archive size
     ALLOWED_EXTENSIONS = {"zip", "tar", "gz", "tgz"}
