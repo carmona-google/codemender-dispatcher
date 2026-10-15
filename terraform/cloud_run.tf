@@ -82,3 +82,14 @@ resource "google_cloud_run_v2_service_iam_member" "admin_invoker" {
   role     = "roles/run.invoker"
   member   = "user:${var.admin_user}"
 }
+
+resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
+  count    = var.deploy_cloud_run && var.dispatcher_image != "" && var.manage_argolis_org_policies ? 1 : 0
+  project  = local.effective_project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.codemender_dispatcher[0].name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+
+  depends_on = [google_project_organization_policy.allow_all_domains]
+}
