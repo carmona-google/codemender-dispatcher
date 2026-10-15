@@ -35,26 +35,32 @@ variable "region" {
 
 variable "create_vpc" {
   type        = bool
-  description = "Whether to provision a dedicated VPC network and subnetwork (enable if default VPC is absent)"
-  default     = false
+  description = "Whether to provision a dedicated VPC network, subnetwork, and Cloud NAT (recommended for Argolis projects where default network is absent)"
+  default     = true
 }
 
 variable "vpc_network_name" {
   type        = string
-  description = "Name of the VPC Network when create_vpc = false"
+  description = "Name of the existing VPC Network when create_vpc = false"
   default     = "default"
 }
 
 variable "vpc_subnetwork_name" {
   type        = string
-  description = "Name of the VPC Subnetwork when create_vpc = false"
+  description = "Name of the existing VPC Subnetwork when create_vpc = false"
   default     = "default"
+}
+
+variable "gke_deletion_protection" {
+  type        = bool
+  description = "Whether to enable GKE deletion protection (set to false to allow clean terraform destroy and environment recreation)"
+  default     = false
 }
 
 variable "manage_argolis_org_policies" {
   type        = bool
   description = "Whether to relax restrictive default Argolis Organization Policies at the project level"
-  default     = false
+  default     = true
 }
 
 variable "deploy_cloud_run" {
