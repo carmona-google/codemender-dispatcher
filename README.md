@@ -1,118 +1,108 @@
-# CodeMender Remote Dispatcher & Execution Sandbox (v2.0)
+# CodeMender Remote Dispatcher & Execution Sandbox (v2.1)
 
-A unified, enterprise-hardened remote-dispatcher system orchestrating the CodeMender CLI within isolated, ephemeral containers on local or customer-managed infrastructure.
+A unified, enterprise-hardened remote-dispatcher system orchestrating the CodeMender CLI (`cm v0.14.0`, powered by `gemini-4-argon`) within isolated, ephemeral containers on local, customer-managed, or **Argolis Google Cloud** infrastructure.
 
 ---
 
-## 🚀 Key Value Proposition: The Split Execution Model (v2.0)
+## 🚀 Key Value Proposition: The Split Execution Model (v2.1)
 
 CodeMender strictly decouples AI cognitive reasoning from physical code execution:
-- **Reasoning Engine (Google Cloud)**: Gemini Enterprise Agent Platform / Interactions API. Communicates over outbound-only TLS gRPC streams, receiving only isolated AST metadata, traces, and targeted snippets (Zero Source Code Exfiltration).
-- **Dispatcher-Mediated Agent Loop**: The cloud gRPC connection is maintained strictly on the Dispatcher control plane. Ephemeral execution sandboxes operate with **zero network sockets** during PoC exploit detonation.
-- **Physical Sandboxes (Local / Customer VPC)**: Confined within ephemeral containers with dropped Linux capabilities (`--cap-drop=ALL`), PID limits (`pids.max=256`), memory cgroups, and gVisor kernel-level isolation.
+- **Reasoning Engine (Google Cloud)**: Gemini Enterprise Agent Platform / Interactions API (`gemini-4-argon` default, with selectable `gemini-3.8-cyber-flash`, `gemini-3.7-flash`, and `gemini-2.5-pro`). Communicates over outbound-only TLS gRPC streams, receiving only isolated AST metadata, traces, and targeted snippets (Zero Source Code Exfiltration).
+- **Interactive 3-Stage Pipeline (`cm find -> cm verify -> cm fix`)**: Supports both one-click full remediation and step-by-step interactive discovery (`find`), selective air-gapped PoC exploit verification (`verify`), and verified diff patch generation (`fix`).
+- **Physical Sandboxes (GKE Autopilot gVisor / Ephemeral Docker)**: Confined within ephemeral containers with dropped Linux capabilities (`--cap-drop=ALL`), PID limits (`pids.max=256`), memory cgroups, and gVisor kernel-level isolation.
 
 ---
 
-## 🛡️ Key Architectural Enhancements (v2.0)
+## 🛡️ Key Architectural Capabilities
 
-1. **Two-Phase Container Network Isolation (Phase 4)**:
+1. **Two-Phase Container Network Isolation**:
    - *Phase 1 (Staging & Dependency Fetch)*: Restricted egress to VPC Artifact Registry mirrors via Private Service Connect.
    - *Phase 2 (Air-Gapped PoC Detonation)*: Network namespace severed (`--network=none`), blocking all SSRF, reverse shells, and exfiltration attempts.
-2. **GKE Autopilot & gVisor Batch Sandboxing (Phase 4)**:
+2. **GKE Autopilot & gVisor Batch Sandboxing**:
    - `K8sJobOrchestrator` provisions ephemeral `batch/v1.Job` pods with `runtimeClassName: gvisor`, `seccompProfile: RuntimeDefault`, `runAsNonRoot: true`, and memory-backed tmpfs mounts for `/run/codemender/state`.
-3. **Cilium Default-Deny NetworkPolicies & RBAC (Phase 4)**:
+3. **Cilium Default-Deny NetworkPolicies & RBAC**:
    - Blocks lateral movements to RFC1918 subnets and cloud metadata services (`169.254.169.254`).
-4. **Control-Plane State Journaling & Signing**:
+4. **Multi-Hop AI Supply-Chain Cascade Detection**:
+   - Detects `.pth` interpreter startup hooks, poisoned/typosquatted transitive dependencies, unpinned CI/CD GitHub Actions, and hardcoded fallback secrets (`demo/ai-supply-chain-cascade-demo.zip`).
+5. **Control-Plane State Journaling & Signing**:
    - `StatePackager` provides HMAC-SHA256 signature verification for multi-turn session state across distributed pipeline runs.
-5. **Context-Aware Semantic Anonymization & Shannon Entropy**:
-   - High-entropy secret scanner + AST taint analysis preserves vulnerability syntax (SQL templates, command injection) while masking confidential literals.
-6. **Multi-Tier Resource Quotas & Watchdog Controller**:
-   - Enforces `pids_limit=256`, 2GB memory ceiling, and a 60-second execution Watchdog timer with SIGKILL escalation.
-7. **CI/CD Automation & In-Flight Debouncing (Phase 3)**:
-   - Automated PR review comments and companion remediation PR creation (`GitHubClient`).
-   - Cancels stale in-flight scans on new PR commits and captures human review feedback (`REMEDIATION_PR_MERGED`, `REMEDIATION_PR_REJECTED`).
-8. **Decoupled ITSM & Cryptographic Provenance (Phase 4)**:
-   - Emits immutable SHA-256 finding provenance digests (`SHA256(Repo + CommitSHA + FindingID)`) to Google Cloud Pub/Sub topics with Dead-Letter Queues.
+6. **Decoupled ITSM & Cryptographic Provenance**:
+   - Emits DLP-sanitized, immutable SHA-256 finding provenance digests (`SHA256(Repo + CommitSHA + FindingID)`) to Google Cloud Pub/Sub topics with Dead-Letter Queues.
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-codemender_dispatcher/
-├── docker/                     # Sandbox Execution Engine Dockerfiles
-│   ├── base/                   # Base hardened container (cm-linux + git)
-│   ├── python/                 # Python 3.11 runtime flavor
-│   ├── node/                   # Node.js 20 LTS runtime flavor
-│   ├── go/                     # Go 1.22 runtime flavor
-│   └── polyglot/               # Unified polyglot container (all runtimes)
-├── k8s/                        # Phase 4: Kubernetes & GKE Autopilot Manifests
+codemender-dispatcher/
+├── Dockerfile                      # Dispatcher Control Plane Image (Cloud Run / Gunicorn)
+├── DEPLOYMENT_ARGOLIS.md           # Argolis GCP Hybrid Deployment Guide
+├── scripts/
+│   └── deploy_argolis.sh           # Automated Argolis Deployment CLI Script
+├── docker/                         # Sandbox Execution Engine Dockerfiles
+│   ├── base/                       # Base hardened container (cm v0.14.0 + git)
+│   ├── python/                     # Python 3.11 runtime flavor
+│   ├── node/                       # Node.js 20 LTS runtime flavor
+│   ├── go/                         # Go 1.22 runtime flavor
+│   └── polyglot/                   # Unified polyglot container (all runtimes)
+├── k8s/                            # Kubernetes & GKE Autopilot Manifests
 │   ├── base/
-│   │   ├── namespace.yaml      # codemender-executors isolated namespace
-│   │   ├── network-policy.yaml # Cilium default-deny NetworkPolicies
-│   │   ├── rbac.yaml           # Least-privileged ServiceAccount & RoleBinding
-│   │   ├── gvisor-job.yaml     # Autopilot gVisor batch Job template
-│   │   └── kustomization.yaml  # Base Kustomize configuration
+│   │   ├── namespace.yaml          # codemender-executors isolated namespace
+│   │   ├── configmap.yaml          # codemender-runtime-config ConfigMap
+│   │   ├── network-policy.yaml     # Cilium default-deny NetworkPolicies
+│   │   ├── rbac.yaml               # Least-privileged ServiceAccount & RoleBinding
+│   │   ├── gvisor-job.yaml         # Autopilot gVisor batch Job template
+│   │   └── kustomization.yaml      # Base Kustomize configuration
 │   └── overlays/
-│       └── gke-autopilot/      # Production GKE Autopilot overlay
-├── terraform/                  # Phase 4: Infrastructure as Code
+│       └── gke-autopilot/          # Production GKE Autopilot overlay
+├── terraform/                      # Argolis Infrastructure as Code
 │   ├── main.tf
-│   ├── gke_autopilot.tf        # Private GKE Autopilot with Datapath V2
-│   ├── iam_wif.tf              # Workload Identity Federation & Scoped IAM
-│   ├── pubsub.tf               # Cloud Pub/Sub Topic for Decoupled ITSM
-│   └── variables.tf
-├── src/                        # Dispatcher Control Plane & Web Portal
-│   ├── app.py                  # Flask Application Factory
-│   ├── config.py               # Configuration & Settings
-│   ├── celery_app.py           # Celery Task Queue Configuration
-│   ├── api/                    # REST Endpoints
-│   │   ├── scans.py            # Codebase Upload & Status APIs
-│   │   ├── webhooks.py         # GitHub PR Webhooks & Auto-PR Flow
-│   │   └── events.py           # Server-Sent Events (SSE) Live Log Streaming
-│   ├── web/                    # Interactive Web Portal Console
-│   │   ├── routes.py           # UI Routes
-│   │   └── templates/          # Jinja2 + Tailwind HTML Templates
-│   ├── core/                   # Orchestration & Persistence
-│   │   ├── scanner.py          # Dynamic AST & Static Vulnerability Scanner
-│   │   ├── github_client.py    # Automated PR Comments & Remediation PRs
-│   │   ├── state_packager.py   # Cryptographic State Package Signer
-│   │   ├── k8s_engine.py       # Phase 4: GKE Autopilot gVisor Batch Provisioner
-│   │   ├── docker_engine.py    # Ephemeral Container Provisioner + Watchdog
-│   │   ├── orchestrator.py     # End-to-End Scan Coordinator
-│   │   └── persistence.py      # Session Hydration & Artifact Extractor
-│   ├── itsm/                   # Decoupled ITSM Integration
-│   │   ├── schemas.py          # Provenance-Enabled Event Schemas
-│   │   ├── dlp_filter.py       # Shannon Entropy & DLP Pre-Sanitizer
-│   │   └── pubsub_publisher.py # Google Cloud Pub/Sub Publisher
-│   └── models/                 # Database Layer
-│       └── scan_job.py         # Thread-safe SQLite / PostgreSQL DAO
-├── tests/                      # Test Suites & Mocks
-│   ├── mocks/
-│   │   └── mock_cm.sh          # Deterministic CLI simulation harness
-│   ├── unit/
-│   │   ├── test_mock_cm.py
-│   │   ├── test_dlp_filter.py
-│   │   ├── test_state_packager.py
-│   │   ├── test_github_client.py
-│   │   └── test_k8s_engine.py  # Phase 4: GKE gVisor & Security Specs Test
-│   └── integration/
-│       ├── test_api_scans.py
-│       └── test_webhooks.py
+│   ├── variables.tf
+│   ├── apis_and_org_policies.tf    # Automated GCP APIs & Argolis Org Policy overrides
+│   ├── network.tf                  # Optional dedicated VPC & Subnetwork
+│   ├── gke_autopilot.tf            # Private GKE Autopilot with Datapath V2
+│   ├── cloud_run.tf                # Artifact Registry & Cloud Run Dispatcher service
+│   ├── iam_wif.tf                  # Workload Identity Federation & Scoped IAM
+│   ├── pubsub.tf                   # Cloud Pub/Sub Topic & DLQ for Decoupled ITSM
+│   ├── outputs.tf
+│   └── terraform.tfvars.example
+├── src/                            # Dispatcher Control Plane & Web Portal
+│   ├── app.py                      # Flask Application Factory
+│   ├── config.py                   # Configuration & Settings
+│   ├── api/                        # REST Endpoints (Scans, Verify, Fix, Webhooks, SSE)
+│   ├── web/                        # Interactive Web Portal Console
+│   ├── core/                       # Orchestration, AST/Supply-Chain Scanner & Persistence
+│   ├── itsm/                       # Decoupled ITSM & DLP Pre-Sanitizer
+│   └── models/                     # Database Layer (SQLite / PostgreSQL DAO)
+├── demo/                           # Demo Payloads & Runbooks
+│   ├── ai-supply-chain-cascade-demo.zip
+│   ├── CODEMENDER_SCAN_VERIFY_FIX_GUIDE.md
+│   ├── CUSTOMER_ITSM_DEMO_SCRIPT.md
+│   └── itsm_demo_subscriber.py
+├── tests/                          # Unit & Integration Test Suites (21 Tests)
 └── requirements.txt
 ```
 
 ---
 
-## 🛠️ Quickstart: Running Locally
+## 🛠️ Quickstart
 
-### 1. Launch Dispatcher Server
+### 1. Deploy to an Argolis GCP Environment
+See [DEPLOYMENT_ARGOLIS.md](DEPLOYMENT_ARGOLIS.md) for full details, or run:
 ```bash
-cd codemender_dispatcher
-PYTHONPATH=. FLASK_APP=src.app flask run --host=0.0.0.0 --port=8080
+chmod +x scripts/deploy_argolis.sh
+./scripts/deploy_argolis.sh \
+  --org [YOUR_ARGOLIS_ORG_DOMAIN] \
+  --user [YOUR_ARGOLIS_ADMIN_USER] \
+  --project [YOUR_ARGOLIS_PROJECT_ID]
 ```
-Open `http://localhost:8080` in your browser to test drag-and-drop zip uploads or send GitHub PR webhooks.
 
-### 2. Run Comprehensive Verification Test Suite (Phases 1–4)
+### 2. Launch Dispatcher Server Locally
+```bash
+PYTHONPATH=. FLASK_APP=src.app flask run --host=0.0.0.0 --port=[PORT]
+```
+
+### 3. Run Verification Test Suite
 ```bash
 PYTHONPATH=. python3 -m unittest discover -s tests -p "test_*.py"
 ```
