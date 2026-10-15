@@ -1,0 +1,12 @@
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+storage/
+terraform/
+doc/
+*.db
+*.sqlite
+*.log
+.env
+.env.*
