@@ -12,15 +12,23 @@ shift || true
 STATE_DIR="${CODEMENDER_STATE_DIR:-/run/codemender/state}"
 OUTPUT_DIR="${CODEMENDER_OUTPUT_DIR:-/workspace/output}"
 SESSION_ID="${CODEMENDER_SESSION_ID:-mock-session-001}"
+CM_VERSION="${CODEMENDER_CLI_VERSION:-0.14.0}"
+MODEL_NAME="${CODEMENDER_MODEL:-gemini-4-argon}"
 
 mkdir -p "${STATE_DIR}" "${OUTPUT_DIR}" "${OUTPUT_DIR}/patches"
 
 case "${COMMAND}" in
+  --version|version)
+    echo "cm version ${CM_VERSION}"
+    ;;
+
   find)
-    echo "[MOCK-CM] Running 'cm find' - Parsing local AST & streaming targeted metadata..."
+    echo "[MOCK-CM] Running 'cm find' (v${CM_VERSION}, model=${MODEL_NAME}) - Parsing local AST & streaming targeted metadata..."
     cat <<EOF > "${OUTPUT_DIR}/findings.json"
 {
   "scan_id": "${SESSION_ID}",
+  "cm_version": "${CM_VERSION}",
+  "model_name": "${MODEL_NAME}",
   "findings": [
     {
       "id": "SEC-FIND-101",
@@ -47,10 +55,12 @@ EOF
     ;;
 
   verify)
-    echo "[MOCK-CM] Running 'cm verify' - Detonating AI PoC exploit in isolated sandbox..."
+    echo "[MOCK-CM] Running 'cm verify' (v${CM_VERSION}, model=${MODEL_NAME}) - Detonating AI PoC exploit in isolated sandbox..."
     cat <<EOF > "${OUTPUT_DIR}/verification.json"
 {
   "scan_id": "${SESSION_ID}",
+  "cm_version": "${CM_VERSION}",
+  "model_name": "${MODEL_NAME}",
   "verified_findings": [
     {
       "finding_id": "SEC-FIND-101",
@@ -65,7 +75,7 @@ EOF
     ;;
 
   fix)
-    echo "[MOCK-CM] Running 'cm fix' - Generating, applying, and validating fix patch..."
+    echo "[MOCK-CM] Running 'cm fix' (v${CM_VERSION}, model=${MODEL_NAME}) - Generating, applying, and validating fix patch..."
     cat <<'EOF' > "${OUTPUT_DIR}/patches/SEC-FIND-101.diff"
 --- a/app/db/query_builder.py
 +++ b/app/db/query_builder.py
@@ -82,6 +92,8 @@ EOF
     cat <<EOF > "${OUTPUT_DIR}/report.json"
 {
   "session_id": "${SESSION_ID}",
+  "cm_version": "${CM_VERSION}",
+  "model_name": "${MODEL_NAME}",
   "status": "COMPLETED",
   "total_vulnerabilities_found": 2,
   "total_vulnerabilities_verified": 1,
@@ -110,6 +122,8 @@ EOF
     cat <<EOF > "${OUTPUT_DIR}/LOG.md"
 # CodeMender Execution Log
 - Session ID: ${SESSION_ID}
+- CLI Version: ${CM_VERSION}
+- Active Model: ${MODEL_NAME}
 - Stage: find -> verify -> fix
 - Exploit Detonation: Contained in sandbox
 - Patch Verification: Test suite passed with zero regressions.
@@ -118,7 +132,7 @@ EOF
     ;;
 
   *)
-    echo "Usage: mock_cm.sh {find|verify|fix}"
+    echo "Usage: mock_cm.sh {--version|find|verify|fix}"
     exit 1
     ;;
 esac

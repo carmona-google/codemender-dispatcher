@@ -43,38 +43,52 @@ class ScanOrchestrator:
         zip_file_path: Optional[Path] = None,
         language_flavor: str = "polyglot",
         stage: str = "all",
+        model_name: Optional[str] = None,
+        finding_ids: Optional[list] = None,
     ) -> Dict[str, Any]:
-        """Runs the complete scan lifecycle synchronously or within a worker task."""
+        """Runs the requested scan stage ('find', 'verify', 'fix', or 'all')."""
         job = self.db_manager.get_job(session_id)
+        stage_norm = (stage or "all").lower()
+
+        stage_map = {
+            "find": ScanStage.FIND.value,
+            "verify": ScanStage.VERIFY.value,
+            "fix": ScanStage.FIX.value,
+            "all": ScanStage.FIND.value,
+        }
+        target_stage_enum = stage_map.get(stage_norm, ScanStage.FIND.value)
 
         if not job:
             job = ScanJob(
                 id=session_id,
                 language_flavor=language_flavor,
+                model_name=model_name,
                 status=ScanStatus.RUNNING.value,
-                stage=ScanStage.PROVISIONING.value,
+                stage=target_stage_enum,
             )
         else:
             job.status = ScanStatus.RUNNING.value
-            job.stage = ScanStage.PROVISIONING.value
+            job.stage = target_stage_enum
+            if model_name:
+                job.model_name = model_name
         self.db_manager.save_job(job)
 
         try:
-            # 1. Setup session directory & extract archive
+            # 1. Setup session directory & extract archive (if zip_file_path provided)
             paths = self.persistence.setup_session(session_id, zip_file_path)
 
-            # 2. Update stage to execution
-            job.stage = ScanStage.FIND.value
-            self.db_manager.save_job(job)
-
-            # 3. Stream execution logs (K8s GKE Autopilot or Docker Sandbox)
-            image_name = f"codemender-executor:{language_flavor}"
+            # 2. Stream execution logs (K8s GKE Autopilot or Docker Sandbox)
+            image_name = f"codemender-executor:{job.language_flavor}"
             log_buffer = []
 
             if self.execution_backend == "k8s" or (self.execution_backend == "auto" and self.k8s_engine.batch_v1 is not None):
-                engine_stream = self.k8s_engine.run_job(session_id, paths, image_name, stage)
+                engine_stream = self.k8s_engine.run_job(
+                    session_id, paths, image_name, stage_norm, job.model_name, finding_ids
+                )
             else:
-                engine_stream = self.docker_engine.run_sandbox(session_id, paths, image_name, stage)
+                engine_stream = self.docker_engine.run_sandbox(
+                    session_id, paths, image_name, stage_norm, job.model_name, finding_ids
+                )
 
             for line in engine_stream:
                 log_buffer.append(line)
@@ -84,9 +98,8 @@ class ScanOrchestrator:
             with open(log_file, "a", encoding="utf-8") as f:
                 f.writelines(log_buffer)
 
-            # 4. Parse results
+            # 3. Parse results
             report = self.persistence.load_report(session_id)
-            job.stage = ScanStage.REPORTING.value
 
             if report:
                 job.vulnerabilities_found = report.get("total_vulnerabilities_found", 0)
@@ -94,13 +107,24 @@ class ScanOrchestrator:
                 job.patches_applied = report.get("total_patches_applied", 0)
                 job.token_usage_json = json.dumps(report.get("token_usage", {}))
 
+            completed_stage_map = {
+                "find": ScanStage.FIND.value,
+                "verify": ScanStage.VERIFY.value,
+                "fix": ScanStage.FIX.value,
+                "all": ScanStage.TEARDOWN.value,
+            }
             job.status = ScanStatus.COMPLETED.value
-            job.stage = ScanStage.TEARDOWN.value
+            job.stage = completed_stage_map.get(stage_norm, ScanStage.TEARDOWN.value)
             self.db_manager.save_job(job)
 
             return {
                 "session_id": session_id,
                 "status": ScanStatus.COMPLETED.value,
+                "stage": job.stage,
+                "model_name": job.model_name,
+                "vulnerabilities_found": job.vulnerabilities_found,
+                "vulnerabilities_verified": job.vulnerabilities_verified,
+                "patches_applied": job.patches_applied,
                 "report": report,
             }
 

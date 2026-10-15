@@ -5,11 +5,16 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-xl">
         <div>
-            <div class="flex items-center space-x-3">
-                <h1 class="text-xl font-bold text-white">Scan Console</h1>
+            <div class="flex flex-wrap items-center gap-2.5">
+                <h1 class="text-xl font-bold text-white">CodeMender Interactive Scan Console</h1>
                 <span class="font-mono text-xs px-2.5 py-1 rounded bg-slate-900 text-indigo-400 border border-slate-700">{{ scan.id }}</span>
+                <span class="font-mono text-xs px-2.5 py-1 rounded bg-slate-900 text-emerald-300 border border-slate-700">CLI: <strong>cm v0.14.0</strong></span>
+                <span class="font-mono text-xs px-2.5 py-1 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-700">Model: <strong id="activeModelBadge">{{ scan.model_name or 'gemini-4-argon' }}</strong></span>
             </div>
-            <p class="text-xs text-slate-400 mt-1">Codebase: <span class="text-slate-200">{{ scan.source_filename or 'Direct Upload' }}</span> &bull; Runtime: <span class="text-slate-200">{{ scan.language_flavor }}</span></p>
+            <p class="text-xs text-slate-400 mt-1.5">
+                Codebase: <span class="text-slate-200">{{ scan.source_filename or 'Direct Upload' }}</span> &bull;
+                Sandbox Runtime: <span class="text-slate-200">{{ scan.language_flavor }}</span>
+            </p>
         </div>
 
         <div class="flex items-center space-x-3">
@@ -20,27 +25,126 @@
                 {% else %}bg-slate-700 text-slate-300{% endif %}">
                 Status: <span id="statusText">{{ scan.status }}</span> (<span id="stageText">{{ scan.stage }}</span>)
             </div>
-            <a href="/" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition">Back to Dashboard</a>
+            <a href="/" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition">&larr; Dashboard</a>
         </div>
     </div>
 
     <!-- Summary Metrics -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4 text-center">
-            <span class="text-xs text-slate-400">Candidate Findings</span>
+            <span class="text-xs text-slate-400">1. Candidate Findings (<code class="text-indigo-300">cm find</code>)</span>
             <p class="text-2xl font-bold text-white mt-1">{{ scan.vulnerabilities_found }}</p>
         </div>
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4 text-center">
-            <span class="text-xs text-slate-400">PoC Verified Exploitable</span>
+            <span class="text-xs text-slate-400">2. PoC Verified (<code class="text-amber-300">cm verify</code>)</span>
             <p class="text-2xl font-bold text-amber-400 mt-1">{{ scan.vulnerabilities_verified }}</p>
         </div>
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4 text-center">
-            <span class="text-xs text-slate-400">Patches Applied</span>
+            <span class="text-xs text-slate-400">3. Patches Applied (<code class="text-emerald-300">cm fix</code>)</span>
             <p class="text-2xl font-bold text-emerald-400 mt-1">{{ scan.patches_applied }}</p>
         </div>
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4 text-center">
-            <span class="text-xs text-slate-400">Gemini Tokens</span>
+            <span class="text-xs text-slate-400">Gemini Tokens Consumed</span>
             <p class="text-2xl font-bold text-indigo-400 mt-1">{{ scan.token_usage.total_tokens or 0 }}</p>
+        </div>
+    </div>
+
+    <!-- Interactive 3-Stage Action Bar (Scan / Verify / Fix + Model + ID Selector) -->
+    <div class="bg-slate-800/90 border border-indigo-500/40 rounded-xl p-6 shadow-xl space-y-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-700 pb-4">
+            <div>
+                <h2 class="text-base font-bold text-white flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Step-by-Step Pipeline Controller: Scan &rarr; Verify &rarr; Fix
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Select the Gemini model and choose which specific Finding ID(s) from the scan to verify or patch.
+                </p>
+            </div>
+
+            <!-- Active Model Selector -->
+            <div class="flex items-center space-x-2">
+                <label for="consoleModelSelect" class="text-xs font-semibold uppercase tracking-wider text-slate-300">Model:</label>
+                <select id="consoleModelSelect" class="bg-slate-900 border border-slate-600 text-cyan-300 font-mono text-xs rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    {% set current_model = scan.model_name or 'gemini-4-argon' %}
+                    <option value="gemini-4-argon" {% if current_model == 'gemini-4-argon' %}selected{% endif %}>gemini-4-argon</option>
+                    <option value="gemini-4" {% if current_model == 'gemini-4' %}selected{% endif %}>gemini-4</option>
+                    <option value="gemini-3.8-cyber-flash" {% if current_model == 'gemini-3.8-cyber-flash' %}selected{% endif %}>gemini-3.8-cyber-flash</option>
+                    <option value="gemini-3.7-flash" {% if current_model == 'gemini-3.7-flash' %}selected{% endif %}>gemini-3.7-flash</option>
+                    <option value="gemini-2.5-pro" {% if current_model == 'gemini-2.5-pro' %}selected{% endif %}>gemini-2.5-pro</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 3 Distinct Function Cards -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Function 1: SCAN (cm find) -->
+            <div class="bg-slate-900/90 border border-slate-700 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">Step 1 &bull; Discovery</span>
+                        <code class="text-xs font-mono bg-indigo-950/80 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">cm find</code>
+                    </div>
+                    <p class="text-xs text-slate-400">
+                        Run AST, dependency manifest, and CI/CD workflow analysis to discover candidate vulnerabilities (resets verification/patch state).
+                    </p>
+                </div>
+                <button onclick="runStageAction('find', [])" id="btnFind" class="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center space-x-1.5">
+                    <span>Run Scan (cm find)</span>
+                </button>
+            </div>
+
+            <!-- Function 2: VERIFY (cm verify) -->
+            <div class="bg-slate-900/90 border border-amber-700/60 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Step 2 &bull; Sandbox PoC</span>
+                        <code class="text-xs font-mono bg-amber-950/80 text-amber-300 px-2 py-0.5 rounded border border-amber-800">cm verify</code>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-2">
+                        Choose a specific Finding ID (or use checked items below) to build and detonate the verification harness in the air-gapped sandbox:
+                    </p>
+                    <select id="verifyFindingSelect" class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs font-mono rounded px-2.5 py-1.5">
+                        <option value="__CHECKED__">Use Checked Finding IDs Below</option>
+                        <option value="__ALL__">Verify ALL Candidate Findings ({{ report.findings|length if report and report.findings else 0 }})</option>
+                        {% if report and report.findings %}
+                            {% for f in report.findings %}
+                            <option value="{{ f.id }}">{{ f.id }} — {{ f.type }} ({{ f.file.split('/')[-1] }}:L{{ f.line }}) {% if f.verified %}[VERIFIED]{% endif %}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <button onclick="triggerVerifyFromPanel()" id="btnVerify" class="w-full py-2 px-3 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center space-x-1.5">
+                    <span>Verify Selected ID(s) (cm verify)</span>
+                </button>
+            </div>
+
+            <!-- Function 3: FIX (cm fix) -->
+            <div class="bg-slate-900/90 border border-emerald-700/60 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Step 3 &bull; Remediation</span>
+                        <code class="text-xs font-mono bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800">cm fix</code>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-2">
+                        Choose a specific Finding ID (or use checked items below) to author, apply, and regression-test a contextual <code class="text-emerald-300">.diff</code> patch:
+                    </p>
+                    <select id="fixFindingSelect" class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs font-mono rounded px-2.5 py-1.5">
+                        <option value="__CHECKED__">Use Checked Finding IDs Below</option>
+                        <option value="__ALL__">Fix ALL Findings ({{ report.findings|length if report and report.findings else 0 }})</option>
+                        {% if report and report.findings %}
+                            {% for f in report.findings %}
+                            <option value="{{ f.id }}">{{ f.id }} — {{ f.type }} ({{ f.file.split('/')[-1] }}:L{{ f.line }}) {% if f.remediated %}[PATCHED]{% elif f.verified %}[VERIFIED]{% endif %}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <button onclick="triggerFixFromPanel()" id="btnFix" class="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center space-x-1.5">
+                    <span>Fix Selected ID(s) (cm fix)</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -51,57 +155,156 @@
                 <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
                 <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
                 <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
-                <span class="text-xs font-mono text-slate-400 ml-2">Execution Sandbox Log Stream</span>
+                <span class="text-xs font-mono text-slate-400 ml-2">Execution Sandbox Log Stream (LOG.md)</span>
             </div>
             <span id="sseIndicator" class="text-xs text-emerald-400 flex items-center">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-ping"></span> Live SSE
+                <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-ping"></span> Ready
             </span>
         </div>
-        <pre id="logTerminal" class="p-4 text-xs font-mono text-slate-300 h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">{{ logs }}</pre>
+        <pre id="logTerminal" class="p-4 text-xs font-mono text-slate-300 h-56 overflow-y-auto whitespace-pre-wrap leading-relaxed">{{ logs }}</pre>
     </div>
 
-    <!-- Verified Findings & Remediations -->
+    <!-- Candidate & Verified Findings List -->
     {% if report and report.findings %}
     <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-xl space-y-4">
-        <h2 class="text-lg font-semibold text-white flex items-center">
-            <svg class="w-5 h-5 mr-2 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-            </svg>
-            Vulnerability Findings & AI Patch Validations
-        </h2>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700 pb-3">
+            <h2 class="text-lg font-semibold text-white flex items-center">
+                <svg class="w-5 h-5 mr-2 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                Findings Inventory, Exploit Verification Telemetry &amp; Patches
+            </h2>
+
+            <!-- Quick Checkbox Selection Helpers -->
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+                <button type="button" onclick="selectFindings('all')" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition">Select All</button>
+                <button type="button" onclick="selectFindings('unverified')" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-amber-300 rounded transition">Select Unverified</button>
+                <button type="button" onclick="selectFindings('verified')" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-emerald-300 rounded transition">Select Verified</button>
+                <button type="button" onclick="selectFindings('none')" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded transition">Clear</button>
+            </div>
+        </div>
 
         <div class="space-y-4">
             {% for finding in report.findings %}
-            <div class="bg-slate-900/80 border border-slate-700/80 rounded-lg p-4 space-y-3">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2">
+            <div class="bg-slate-900/90 border {% if finding.remediated %}border-emerald-700/70{% elif finding.verified %}border-amber-600/70{% else %}border-slate-700{% endif %} rounded-xl p-5 space-y-4 transition">
+                <!-- Top Row: Checkbox, Severity, Type, ID, Status Badges & Per-ID Action Buttons -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" class="finding-checkbox w-4 h-4 rounded bg-slate-950 border-slate-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            value="{{ finding.id }}"
+                            data-verified="{{ 'true' if finding.verified else 'false' }}"
+                            data-remediated="{{ 'true' if finding.remediated else 'false' }}"
+                            checked>
                         <span class="px-2 py-0.5 rounded text-xs font-bold uppercase
                             {% if finding.severity == 'CRITICAL' %}bg-rose-900 text-rose-200 border border-rose-700
                             {% elif finding.severity == 'HIGH' %}bg-amber-900 text-amber-200 border border-amber-700
                             {% else %}bg-indigo-900 text-indigo-200{% endif %}">
                             {{ finding.severity }}
                         </span>
-                        <span class="font-semibold text-white text-sm">{{ finding.type }}</span>
-                        <span class="text-xs text-slate-400 font-mono">({{ finding.id }})</span>
+                        <span class="font-bold text-white text-sm">{{ finding.type }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded bg-slate-950 text-indigo-300 font-mono border border-slate-700">ID: {{ finding.id }}</span>
                     </div>
-                    <div>
-                        {% if finding.remediated %}
-                        <span class="text-xs text-emerald-400 font-semibold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-700">&check; Patch Validated</span>
+
+                    <!-- Status Badges + Individual Verify / Fix Buttons -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        {% if finding.verified %}
+                        <span class="text-xs text-amber-300 font-semibold bg-amber-950/90 px-2.5 py-1 rounded border border-amber-700">
+                            &#9888; Exploit Verified in Sandbox
+                        </span>
+                        {% else %}
+                        <span class="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded border border-slate-700">
+                            Unverified Candidate
+                        </span>
                         {% endif %}
+
+                        {% if finding.remediated %}
+                        <span class="text-xs text-emerald-300 font-semibold bg-emerald-950/90 px-2.5 py-1 rounded border border-emerald-700">
+                            &check; Patch Validated
+                        </span>
+                        {% endif %}
+
+                        <button type="button" onclick="runStageAction('verify', ['{{ finding.id }}'])"
+                            class="text-xs px-2.5 py-1 bg-amber-600/90 hover:bg-amber-500 text-white font-medium rounded shadow transition">
+                            Verify {{ finding.id }}
+                        </button>
+                        <button type="button" onclick="runStageAction('fix', ['{{ finding.id }}'])"
+                            class="text-xs px-2.5 py-1 bg-emerald-600/90 hover:bg-emerald-500 text-white font-medium rounded shadow transition">
+                            Fix {{ finding.id }}
+                        </button>
                     </div>
                 </div>
 
-                <p class="text-xs text-slate-400 font-mono">
-                    Target: <span class="text-indigo-300">{{ finding.file }}:L{{ finding.line }}</span>
-                </p>
-
-                <!-- Diff Container -->
-                {% if patches and finding.patch_file %}
-                <div class="mt-3 pt-3 border-t border-slate-800">
-                    <span class="text-xs font-semibold text-slate-300 block mb-2">Remediated Unified Diff:</span>
-                    <div class="diff-block font-mono text-xs rounded bg-slate-950 p-2 overflow-x-auto text-emerald-300 whitespace-pre">
-{{ patches.get(finding.patch_file.split('/')[-1]) or 'Diff pending extraction' }}
+                <!-- File Location & Vulnerable Code Snippet -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-950/80 px-3.5 py-2 rounded-lg border border-slate-800 font-mono text-xs">
+                    <div>
+                        <span class="text-slate-400">Location:</span>
+                        <span class="text-indigo-300 font-semibold ml-1">{{ finding.file }}:L{{ finding.line }}</span>
                     </div>
+                    {% if finding.snippet %}
+                    <div class="text-rose-300 truncate max-w-xl" title="{{ finding.snippet }}">
+                        <span class="text-slate-500 mr-1">Snippet:</span>{{ finding.snippet }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Detailed Sandbox Exploit Verification Telemetry Panel -->
+                {% if finding.verified and finding.verification_details %}
+                {% set vd = finding.verification_details %}
+                <div class="bg-amber-950/20 border border-amber-700/50 rounded-lg p-4 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-800/40 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-300">
+                                &#128737; Sandbox Verification &amp; PoC Exploit Telemetry
+                            </span>
+                            <span class="text-xs font-mono px-2 py-0.5 rounded bg-amber-900/60 text-amber-200 border border-amber-700">
+                                {{ vd.harness_type }}
+                            </span>
+                        </div>
+                        <div class="text-xs font-mono text-slate-400">
+                            Model: <span class="text-cyan-300">{{ vd.model_used }}</span> &bull;
+                            Duration: <span class="text-amber-300">{{ vd.duration_ms }} ms</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div class="bg-slate-950/70 p-3 rounded border border-slate-800 space-y-1">
+                            <span class="font-semibold text-slate-300 block">How the Verification Harness Was Built:</span>
+                            <p class="text-slate-400 leading-relaxed">{{ vd.exploit_summary }}</p>
+                        </div>
+                        <div class="bg-slate-950/70 p-3 rounded border border-slate-800 space-y-1">
+                            <span class="font-semibold text-amber-300 block">Observed Sandbox Proof / Behavioral Side-Effect:</span>
+                            <p class="text-slate-300 leading-relaxed">{{ vd.observed_behavior }}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950 p-2.5 rounded border border-slate-800 font-mono text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <span class="text-slate-500">Sandbox Trigger Executed:</span>
+                            <code class="text-amber-300 ml-2">{{ vd.simulated_trigger }}</code>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for guardrail in vd.sandbox_guardrails %}
+                            <span class="px-2 py-0.5 rounded bg-slate-900 text-emerald-400 border border-slate-700 text-[11px]">
+                                &check; {{ guardrail }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Remediated Unified Diff Container -->
+                {% if finding.remediated and patches and finding.patch_file %}
+                <div class="pt-2 border-t border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-emerald-300">
+                            &check; Validated Remediation Patch (<code class="font-mono">{{ finding.patch_file }}</code>):
+                        </span>
+                        {% if finding.remediated_by_model %}
+                        <span class="text-xs font-mono text-slate-400">Authored by: <span class="text-cyan-300">{{ finding.remediated_by_model }}</span></span>
+                        {% endif %}
+                    </div>
+                    <div class="diff-block font-mono text-xs rounded-lg bg-slate-950 p-3 overflow-x-auto text-emerald-300 border border-emerald-900/50 whitespace-pre">{{ patches.get(finding.patch_file.split('/')[-1]) or 'Diff pending extraction' }}</div>
                 </div>
                 {% endif %}
             </div>
@@ -117,35 +320,83 @@
     const stageText = document.getElementById('stageText');
     const logTerminal = document.getElementById('logTerminal');
     const sseIndicator = document.getElementById('sseIndicator');
+    const consoleModelSelect = document.getElementById('consoleModelSelect');
 
-    if ("{{ scan.status }}" !== "COMPLETED" && "{{ scan.status }}" !== "FAILED") {
-        const eventSource = new EventSource(`/api/v1/events/${scanId}`);
+    function getCheckedFindingIds() {
+        return Array.from(document.querySelectorAll('.finding-checkbox:checked')).map(cb => cb.value);
+    }
 
-        eventSource.addEventListener('log', (e) => {
-            const data = JSON.parse(e.data);
-            logTerminal.textContent += data.chunk;
-            logTerminal.scrollTop = logTerminal.scrollHeight;
+    function selectFindings(filterType) {
+        document.querySelectorAll('.finding-checkbox').forEach(cb => {
+            if (filterType === 'all') {
+                cb.checked = true;
+            } else if (filterType === 'none') {
+                cb.checked = false;
+            } else if (filterType === 'unverified') {
+                cb.checked = cb.dataset.verified === 'false';
+            } else if (filterType === 'verified') {
+                cb.checked = cb.dataset.verified === 'true';
+            }
         });
+    }
 
-        eventSource.addEventListener('status', (e) => {
-            const data = JSON.parse(e.data);
-            statusText.textContent = data.status;
-            stageText.textContent = data.stage;
-        });
+    function triggerVerifyFromPanel() {
+        const sel = document.getElementById('verifyFindingSelect').value;
+        let ids = [];
+        if (sel === '__CHECKED__') {
+            ids = getCheckedFindingIds();
+            if (ids.length === 0) {
+                alert('Please check at least one Finding ID below or choose a specific ID from the dropdown.');
+                return;
+            }
+        } else if (sel !== '__ALL__') {
+            ids = [sel];
+        }
+        runStageAction('verify', ids);
+    }
 
-        eventSource.addEventListener('done', (e) => {
-            eventSource.close();
-            sseIndicator.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500 mr-1.5"></span> Finished';
-            setTimeout(() => {
+    function triggerFixFromPanel() {
+        const sel = document.getElementById('fixFindingSelect').value;
+        let ids = [];
+        if (sel === '__CHECKED__') {
+            ids = getCheckedFindingIds();
+            if (ids.length === 0) {
+                alert('Please check at least one Finding ID below or choose a specific ID from the dropdown.');
+                return;
+            }
+        } else if (sel !== '__ALL__') {
+            ids = [sel];
+        }
+        runStageAction('fix', ids);
+    }
+
+    async function runStageAction(stage, findingIds) {
+        const modelName = consoleModelSelect.value;
+        sseIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 mr-1.5 animate-ping"></span> Running ${stage.toUpperCase()} (${modelName})...`;
+        statusText.textContent = 'RUNNING';
+        stageText.textContent = stage.toUpperCase();
+
+        try {
+            const resp = await fetch(`/api/v1/scans/${scanId}/stage`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    stage: stage,
+                    finding_ids: findingIds && findingIds.length > 0 ? findingIds : null,
+                    model_name: modelName
+                })
+            });
+            const data = await resp.json();
+            if (resp.ok) {
                 window.location.reload();
-            }, 1000);
-        });
-
-        eventSource.onerror = () => {
-            sseIndicator.innerHTML = '<span class="text-amber-400 text-xs">SSE Reconnecting...</span>';
-        };
-    } else {
-        sseIndicator.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-500 mr-1.5"></span> Complete';
+            } else {
+                alert(`Stage ${stage} failed: ${data.error || 'Unknown error'}`);
+                sseIndicator.innerHTML = '<span class="text-rose-400 text-xs">Failed</span>';
+            }
+        } catch (err) {
+            alert(`Error invoking stage ${stage}: ${err}`);
+            sseIndicator.innerHTML = '<span class="text-rose-400 text-xs">Error</span>';
+        }
     }
 </script>
 {% endblock %}

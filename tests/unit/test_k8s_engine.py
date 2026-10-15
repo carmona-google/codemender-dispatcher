@@ -43,7 +43,8 @@ class TestK8sJobOrchestrator(unittest.TestCase):
         env_vars = {env["name"]: env["value"] for env in container["env"]}
         self.assertEqual(env_vars.get("CODEMENDER_STAGE"), "all")
         self.assertEqual(env_vars.get("CODEMENDER_SESSION_ID"), "sec-session-42")
-        self.assertEqual(env_vars.get("CODEMENDER_MODEL"), "gemini-3.7-flash")
+        self.assertEqual(env_vars.get("CODEMENDER_MODEL"), "gemini-4-argon")
+        self.assertEqual(env_vars.get("CODEMENDER_CLI_VERSION"), "0.14.0")
 
         # Verify tmpfs state mount
         volumes = {v["name"]: v for v in template_spec["volumes"]}

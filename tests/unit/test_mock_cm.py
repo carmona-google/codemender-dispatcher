@@ -91,8 +91,20 @@ class TestMockCMHarness(unittest.TestCase):
         with open(report_path, "r", encoding="utf-8") as f:
             report = json.load(f)
         self.assertEqual(report["status"], "COMPLETED")
+        self.assertEqual(report["cm_version"], "0.14.0")
+        self.assertEqual(report["model_name"], "gemini-4-argon")
         self.assertEqual(report["total_patches_applied"], 1)
         self.assertIn("token_usage", report)
+
+    def test_mock_version_command(self):
+        result = subprocess.run(
+            ["bash", self.script_path, "--version"],
+            env=self.env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("cm version 0.14.0", result.stdout)
 
 
 if __name__ == "__main__":

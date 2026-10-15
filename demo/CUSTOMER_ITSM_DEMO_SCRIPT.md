@@ -40,7 +40,7 @@ This presentation script guides you through demonstrating **CodeMender's Decoupl
 Open a terminal window and run the live ITSM subscriber:
 
 ```bash
-cd /google/src/cloud/carmona/codemender_demo/google3/experimental/users/carmona/codemender_dispatcher
+cd codemender-dispatcher
 PYTHONPATH=. python3 demo/itsm_demo_subscriber.py
 ```
 

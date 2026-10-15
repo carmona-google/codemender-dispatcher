@@ -102,7 +102,8 @@ class K8sJobOrchestrator:
                                 "env": [
                                     {"name": "CODEMENDER_STAGE", "value": stage},
                                     {"name": "CODEMENDER_SESSION_ID", "value": session_id},
-                                    {"name": "CODEMENDER_MODEL", "value": os.environ.get("CODEMENDER_MODEL", "gemini-3.7-flash")},
+                                    {"name": "CODEMENDER_MODEL", "value": os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")},
+                                    {"name": "CODEMENDER_CLI_VERSION", "value": os.environ.get("CODEMENDER_CLI_VERSION", "0.14.0")},
                                 ],
                                 "resources": {
                                     "requests": {"cpu": "2", "memory": "2Gi", "ephemeral-storage": "1Gi"},
@@ -148,12 +149,15 @@ class K8sJobOrchestrator:
         paths: Dict[str, Path],
         image_name: str = "codemender-executor:polyglot",
         stage: str = "all",
+        model_name: Optional[str] = None,
+        finding_ids: Optional[list] = None,
     ) -> Generator[str, None, int]:
         """Provisions the GKE batch Job and streams execution logs."""
+        active_model = model_name or os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")
         if self.batch_v1 is not None and self.core_v1 is not None:
             yield from self._run_k8s_job(session_id, image_name, stage)
         elif self.enable_mock_fallback:
-            yield from self._run_fallback(session_id, paths, stage)
+            yield from self._run_fallback(session_id, paths, stage, active_model, finding_ids)
         else:
             raise RuntimeError("Kubernetes API client unavailable and mock fallback is disabled.")
 
@@ -201,19 +205,33 @@ class K8sJobOrchestrator:
             yield f"[GKE-ERROR] Kubernetes Job execution error: {e}\n"
             return 1
 
-    def _run_fallback(self, session_id: str, paths: Dict[str, Path], stage: str) -> Generator[str, None, int]:
+    def _run_fallback(
+        self,
+        session_id: str,
+        paths: Dict[str, Path],
+        stage: str,
+        model_name: str = "gemini-4-argon",
+        finding_ids: Optional[list] = None,
+    ) -> Generator[str, None, int]:
         """Runs local dynamic AST scanner fallback."""
-        yield f"[GKE-AUTOPILOT-MOCK] Falling back to local AST sandbox execution for session '{session_id}'...\n"
+        yield f"[GKE-AUTOPILOT-MOCK] Falling back to local AST sandbox execution for session '{session_id}' (cm=v0.14.0, stage={stage}, model={model_name})...\n"
         from .scanner import DynamicCodeScanner
         scanner = DynamicCodeScanner(
             source_dir=paths["source_dir"],
             output_dir=paths["output_dir"],
             session_id=session_id,
+            model_name=model_name,
         )
-        report = scanner.scan_and_remediate()
+        report = scanner.scan_and_remediate(
+            stage=stage,
+            finding_ids=finding_ids,
+            model_name=model_name,
+        )
         yield f"[CODEMENDER-AST] Scanned uploaded codebase. Found {report['total_vulnerabilities_found']} candidate vulnerabilities.\n"
         for f in report.get("findings", []):
-            yield f"[CODEMENDER-VERIFY] Detonating gVisor PoC: {f['type']} at {f['file']}:L{f['line']} -> VERIFIED\n"
-            yield f"[CODEMENDER-FIX] Generated verified patch: {f.get('patch_file')}\n"
+            if f.get("verified"):
+                yield f"[CODEMENDER-VERIFY] Detonating gVisor PoC: {f['type']} at {f['file']}:L{f['line']} -> VERIFIED\n"
+            if f.get("remediated"):
+                yield f"[CODEMENDER-FIX] Generated verified patch: {f.get('patch_file')}\n"
         yield f"[GKE-AUTOPILOT] Execution complete. {report['total_patches_applied']} verified patches applied.\n"
         return 0
