@@ -1,7 +1,7 @@
 # ==============================================================================
 # CodeMender Dispatcher Control Plane & Web Portal Image (Cloud Run / GKE)
 # ==============================================================================
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -44,4 +44,4 @@ USER appuser
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --threads 4 --timeout 120 'src.app:create_app()'"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads 8 --timeout 120 'src.app:create_app()'"]
