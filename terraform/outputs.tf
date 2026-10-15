@@ -10,7 +10,17 @@ output "gke_cluster_location" {
 
 output "gke_get_credentials_command" {
   description = "Command to authenticate kubectl with the GKE Autopilot cluster"
-  value       = "gcloud container clusters get-credentials ${google_container_cluster.codemender_cluster.name} --region ${google_container_cluster.codemender_cluster.location} --project ${var.project_id}"
+  value       = "gcloud container clusters get-credentials ${google_container_cluster.codemender_cluster.name} --region ${google_container_cluster.codemender_cluster.location} --project ${local.effective_project_id}"
+}
+
+output "artifact_registry_repo_url" {
+  description = "Artifact Registry Docker repository URL"
+  value       = "${var.region}-docker.pkg.dev/${local.effective_project_id}/${google_artifact_registry_repository.codemender_repo.repository_id}"
+}
+
+output "cloud_run_dispatcher_url" {
+  description = "HTTPS endpoint URL for the CodeMender Dispatcher Cloud Run service (if deployed)"
+  value       = length(google_cloud_run_v2_service.codemender_dispatcher) > 0 ? google_cloud_run_v2_service.codemender_dispatcher[0].uri : "Not deployed (set dispatcher_image to deploy Cloud Run)"
 }
 
 output "pubsub_topic_id" {

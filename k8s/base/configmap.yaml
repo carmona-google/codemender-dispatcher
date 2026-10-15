@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codemender-runtime-config
+  namespace: codemender-executors
+data:
+  config.yaml: |
+    cli_version: "0.14.0"
+    default_model: "gemini-4-argon"
+    sandbox:
+      runtime: "gvisor"
+      network_mode: "air-gapped-verify"
+      max_execution_seconds: 60
+      dlp_entropy_threshold: 4.5

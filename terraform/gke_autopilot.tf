@@ -8,8 +8,8 @@ resource "google_container_cluster" "codemender_cluster" {
 
   enable_autopilot = true
 
-  network    = var.vpc_network_name
-  subnetwork = var.vpc_subnetwork_name
+  network    = local.effective_network
+  subnetwork = local.effective_subnetwork
 
   ip_allocation_policy {}
 
@@ -30,4 +30,6 @@ resource "google_container_cluster" "codemender_cluster" {
   release_channel {
     channel = "REGULAR"
   }
+
+  depends_on = [google_project_service.enabled_apis]
 }

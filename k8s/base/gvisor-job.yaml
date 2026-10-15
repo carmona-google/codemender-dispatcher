@@ -37,6 +37,10 @@ spec:
               value: "all"
             - name: CODEMENDER_SESSION_ID
               value: "JOB_SESSION_ID"
+            - name: CODEMENDER_MODEL
+              value: "gemini-4-argon"
+            - name: CODEMENDER_CLI_VERSION
+              value: "0.14.0"
           resources:
             requests:
               cpu: "2"

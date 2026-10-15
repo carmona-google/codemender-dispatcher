@@ -42,6 +42,7 @@ class ScanJob:
         stage: str = ScanStage.INGESTION.value,
         source_filename: Optional[str] = None,
         language_flavor: str = "polyglot",
+        model_name: Optional[str] = None,
         vulnerabilities_found: int = 0,
         vulnerabilities_verified: int = 0,
         patches_applied: int = 0,
@@ -55,6 +56,7 @@ class ScanJob:
         self.stage = stage
         self.source_filename = source_filename
         self.language_flavor = language_flavor
+        self.model_name = model_name or os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")
         self.vulnerabilities_found = vulnerabilities_found
         self.vulnerabilities_verified = vulnerabilities_verified
         self.patches_applied = patches_applied
@@ -70,6 +72,7 @@ class ScanJob:
             "stage": self.stage,
             "source_filename": self.source_filename,
             "language_flavor": self.language_flavor,
+            "model_name": self.model_name,
             "vulnerabilities_found": self.vulnerabilities_found,
             "vulnerabilities_verified": self.vulnerabilities_verified,
             "patches_applied": self.patches_applied,
@@ -102,7 +105,7 @@ class DatabaseManager:
             conn.close()
 
     def init_schema(self):
-        """Creates tables if they do not exist."""
+        """Creates tables if they do not exist and migrates model_name column."""
         with self._get_connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS scan_jobs (
@@ -113,6 +116,7 @@ class DatabaseManager:
                     stage TEXT NOT NULL,
                     source_filename TEXT,
                     language_flavor TEXT NOT NULL,
+                    model_name TEXT DEFAULT 'gemini-4-argon',
                     vulnerabilities_found INTEGER DEFAULT 0,
                     vulnerabilities_verified INTEGER DEFAULT 0,
                     patches_applied INTEGER DEFAULT 0,
@@ -120,6 +124,10 @@ class DatabaseManager:
                     error_message TEXT
                 )
             """)
+            # Ensure backwards compatibility with existing database files
+            cols = [row["name"] for row in conn.execute("PRAGMA table_info(scan_jobs)").fetchall()]
+            if "model_name" not in cols:
+                conn.execute("ALTER TABLE scan_jobs ADD COLUMN model_name TEXT DEFAULT 'gemini-4-argon'")
             conn.commit()
 
     def save_job(self, job: ScanJob):
@@ -129,15 +137,16 @@ class DatabaseManager:
             conn.execute("""
                 INSERT INTO scan_jobs (
                     id, created_at, updated_at, status, stage, source_filename,
-                    language_flavor, vulnerabilities_found, vulnerabilities_verified,
-                    patches_applied, token_usage_json, error_message
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    language_flavor, model_name, vulnerabilities_found,
+                    vulnerabilities_verified, patches_applied, token_usage_json, error_message
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     updated_at=excluded.updated_at,
                     status=excluded.status,
                     stage=excluded.stage,
                     source_filename=excluded.source_filename,
                     language_flavor=excluded.language_flavor,
+                    model_name=excluded.model_name,
                     vulnerabilities_found=excluded.vulnerabilities_found,
                     vulnerabilities_verified=excluded.vulnerabilities_verified,
                     patches_applied=excluded.patches_applied,
@@ -145,9 +154,9 @@ class DatabaseManager:
                     error_message=excluded.error_message
             """, (
                 job.id, job.created_at, job.updated_at, job.status, job.stage,
-                job.source_filename, job.language_flavor, job.vulnerabilities_found,
-                job.vulnerabilities_verified, job.patches_applied,
-                job.token_usage_json, job.error_message
+                job.source_filename, job.language_flavor, job.model_name,
+                job.vulnerabilities_found, job.vulnerabilities_verified,
+                job.patches_applied, job.token_usage_json, job.error_message
             ))
             conn.commit()
 
@@ -158,6 +167,7 @@ class DatabaseManager:
             row = cursor.fetchone()
             if not row:
                 return None
+            row_keys = row.keys()
             return ScanJob(
                 id=row["id"],
                 created_at=row["created_at"],
@@ -166,6 +176,7 @@ class DatabaseManager:
                 stage=row["stage"],
                 source_filename=row["source_filename"],
                 language_flavor=row["language_flavor"],
+                model_name=row["model_name"] if "model_name" in row_keys else "gemini-4-argon",
                 vulnerabilities_found=row["vulnerabilities_found"],
                 vulnerabilities_verified=row["vulnerabilities_verified"],
                 patches_applied=row["patches_applied"],
@@ -189,6 +200,7 @@ class DatabaseManager:
                     stage=row["stage"],
                     source_filename=row["source_filename"],
                     language_flavor=row["language_flavor"],
+                    model_name=row["model_name"] if "model_name" in row.keys() else "gemini-4-argon",
                     vulnerabilities_found=row["vulnerabilities_found"],
                     vulnerabilities_verified=row["vulnerabilities_verified"],
                     patches_applied=row["patches_applied"],

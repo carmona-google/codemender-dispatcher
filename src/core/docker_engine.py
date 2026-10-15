@@ -6,7 +6,7 @@ import signal
 import subprocess
 import logging
 from pathlib import Path
-from typing import Dict, Generator, Any
+from typing import Dict, Generator, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +45,15 @@ class DockerOrchestrator:
         paths: Dict[str, Path],
         image_name: str = "codemender-executor:polyglot",
         stage: str = "all",
+        model_name: Optional[str] = None,
+        finding_ids: Optional[list] = None,
     ) -> Generator[str, None, int]:
         """Runs the sandbox container with watchdog timeout and yields real-time log lines."""
+        active_model = model_name or os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")
         if self.client is not None:
-            yield from self._run_docker_container(session_id, paths, image_name, stage)
+            yield from self._run_docker_container(session_id, paths, image_name, stage, active_model)
         elif self.enable_mock_fallback:
-            yield from self._run_mock_sandbox(session_id, paths, stage)
+            yield from self._run_mock_sandbox(session_id, paths, stage, active_model, finding_ids)
         else:
             raise RuntimeError("Docker daemon is unavailable and mock fallback is disabled.")
 
@@ -60,9 +63,10 @@ class DockerOrchestrator:
         paths: Dict[str, Path],
         image_name: str,
         stage: str,
+        model_name: str,
     ) -> Generator[str, None, int]:
         """Executes sandbox container with PID limits and memory cgroups."""
-        container_name = f"cm-sandbox-{session_id}"
+        container_name = f"cm-sandbox-{session_id}-{stage}"
         volumes = {
             str(paths["source_dir"]): {"bind": "/workspace/source", "mode": "rw"},
             str(paths["output_dir"]): {"bind": "/workspace/output", "mode": "rw"},
@@ -71,11 +75,12 @@ class DockerOrchestrator:
         environment = {
             "CODEMENDER_STAGE": stage,
             "CODEMENDER_SESSION_ID": session_id,
-            "CODEMENDER_MODEL": os.environ.get("CODEMENDER_MODEL", "gemini-3.7-flash"),
+            "CODEMENDER_MODEL": model_name,
+            "CODEMENDER_CLI_VERSION": os.environ.get("CODEMENDER_CLI_VERSION", "0.14.0"),
         }
         tmpfs = {"/run/codemender/state": "size=128M,exec"}
 
-        yield f"[DISPATCHER-v2] Spawning hardened sandbox '{container_name}' (pids_limit=256, mem=2GB, watchdog={self.watchdog_timeout_sec}s)...\n"
+        yield f"[DISPATCHER-v2] Spawning hardened sandbox '{container_name}' (cm=v0.14.0, model={model_name}, stage={stage}, pids_limit=256, mem=2GB)...\n"
 
         try:
             container = self.client.containers.run(
@@ -117,26 +122,48 @@ class DockerOrchestrator:
         session_id: str,
         paths: Dict[str, Path],
         stage: str,
+        model_name: str = "gemini-4-argon",
+        finding_ids: Optional[list] = None,
     ) -> Generator[str, None, int]:
-        """Dynamically scans real uploaded code and generates contextual AST diffs."""
-        yield f"[DISPATCHER-v2] Sandbox active: analyzing uploaded files in {paths['source_dir']}...\n"
+        """Dynamically scans real uploaded code and executes the requested stage."""
+        yield f"[DISPATCHER-v2] Sandbox active (cm v0.14.0 | Stage: {stage.upper()} | Model: {model_name}): analyzing {paths['source_dir']}...\n"
 
         from .scanner import DynamicCodeScanner
         scanner = DynamicCodeScanner(
             source_dir=paths["source_dir"],
             output_dir=paths["output_dir"],
             session_id=session_id,
+            model_name=model_name,
         )
 
         try:
-            report = scanner.scan_and_remediate()
-            yield f"[CODEMENDER-AST] Scanned uploaded codebase. Found {report['total_vulnerabilities_found']} candidate vulnerabilities.\n"
-            for f in report.get("findings", []):
-                yield f"[CODEMENDER-VERIFY] Detonating sandbox PoC: {f['type']} at {f['file']}:L{f['line']} -> VERIFIED EXPLOITABLE\n"
-                yield f"[CODEMENDER-FIX] Generated & validated patch: {f.get('patch_file')}\n"
+            report = scanner.scan_and_remediate(
+                stage=stage,
+                finding_ids=finding_ids,
+                model_name=model_name,
+            )
+            if stage in ("find", "all"):
+                yield f"[CODEMENDER-FIND] ({model_name}) Scanned codebase. Found {report['total_vulnerabilities_found']} candidate vulnerabilities.\n"
+            if stage in ("verify", "all"):
+                for f in report.get("findings", []):
+                    if f.get("verified") and (not finding_ids or f["id"] in finding_ids):
+                        details = f.get("verification_details") or {}
+                        yield (
+                            f"[CODEMENDER-VERIFY] ({model_name}) {f['id']} ({f['type']} at {f['file']}:L{f['line']}) "
+                            f"-> {details.get('status', 'VERIFIED_EXPLOITABLE')} via {details.get('harness_type', 'Sandbox')}\n"
+                        )
+            if stage in ("fix", "all"):
+                for f in report.get("findings", []):
+                    if f.get("remediated") and (not finding_ids or f["id"] in finding_ids):
+                        yield f"[CODEMENDER-FIX] ({model_name}) {f['id']} -> Generated & validated patch: {f.get('patch_file')}\n"
 
-            yield f"[DISPATCHER] Execution complete. {report['total_patches_applied']} verified patches applied with 0 regressions.\n"
+            yield (
+                f"[DISPATCHER] Stage '{stage.upper()}' complete. "
+                f"Found: {report['total_vulnerabilities_found']} | "
+                f"Verified: {report['total_vulnerabilities_verified']} | "
+                f"Patched: {report['total_patches_applied']}\n"
+            )
             return 0
         except Exception as e:
-            yield f"[DISPATCHER-ERROR] Scanning failed: {e}\n"
+            yield f"[DISPATCHER-ERROR] Stage '{stage}' failed: {e}\n"
             return 1

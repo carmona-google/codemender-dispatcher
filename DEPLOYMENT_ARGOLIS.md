@@ -1,157 +1,150 @@
-# Deploying CodeMender to Argolis GCP with Terraform
+# Deploying CodeMender Dispatcher (v2.1) to Argolis GCP
 
-This guide walks through deploying the complete **CodeMender Split Execution & Remote Dispatcher** platform onto your **Argolis Google Cloud environment**.
+This guide walks through deploying the **CodeMender Split Execution & Remote Dispatcher** platform onto a specific **Argolis Google Cloud environment** using the automated deployment workflow or step-by-step Terraform + Kubernetes manifests.
 
 ---
 
-## 🏗️ Architecture Provisioned in Argolis
+## 🏗️ Hybrid Architecture Provisioned in Argolis
 
 ```
 +-----------------------------------------------------------------------------------+
-| Google Cloud Argolis Project                                                      |
+| Argolis Organization: [YOUR_ARGOLIS_ORG_DOMAIN]                                   |
+| Google Cloud Project: [YOUR_ARGOLIS_PROJECT_ID]                                   |
+| Admin User          : [YOUR_ARGOLIS_ADMIN_USER]                                   |
 |                                                                                   |
+|  +-------------------------------------+  +------------------------------------+  |
+|  | Cloud Run Service:                  |  | Artifact Registry:                 |  |
+|  | `codemender-dispatcher`             |  | `codemender-repo`                  |  |
+|  | (Flask Web UI + 3-Stage REST API)   |  | (Dispatcher & Sandbox Containers)  |  |
+|  +-------------------------------------+  +------------------------------------+  |
+|                     |                                                             |
+|                     v                                                             |
 |  +-----------------------------------------------------------------------------+  |
-|  | VPC Network: default (Datapath V2 / Cilium eBPF)                            |  |
+|  | VPC Network (Datapath V2 / Cilium eBPF)                                     |  |
 |  |                                                                             |  |
 |  |  +-----------------------------------------------------------------------+  |  |
-|  |  | GKE Autopilot Cluster (codemender-sandbox-cluster)                     |  |  |
-|  |  |  - Namespace: codemender-executors                                    |  |  |
-|  |  |  - Security: gVisor RuntimeClass (`runtimeClassName: gvisor`)           |  |  |
-|  |  |  - NetworkPolicy: Cilium Default-Deny (RFC1918 & Metadata blocked)   |  |  |
-|  |  |  - Workload Identity Federation (codemender-executor-ksa)              |  |  |
+|  |  | GKE Autopilot Cluster (`codemender-sandbox-cluster`)                  |  |  |
+|  |  |  - Namespace: `codemender-executors`                                  |  |  |
+|  |  |  - ConfigMap: `codemender-runtime-config` (cm v0.14.0 / gemini-4-argon)|  |  |
+|  |  |  - Security: gVisor RuntimeClass (`runtimeClassName: gvisor`)         |  |  |
+|  |  |  - NetworkPolicy: Cilium Default-Deny (RFC1918 & Metadata blocked)    |  |  |
+|  |  |  - Workload Identity Federation (`codemender-executor-ksa`)           |  |  |
 |  |  +-----------------------------------------------------------------------+  |  |
 |  +-----------------------------------------------------------------------------+  |
 |                                                                                   |
 |  +-------------------------------------+  +------------------------------------+  |
 |  | Cloud Pub/Sub Topic:                |  | Vertex AI / Gemini Enterprise:     |  |
 |  | `codemender-security-events`        |  | Outbound gRPC Interactions API     |  |
-|  | (Decoupled ITSM & SIEM Bus)         |  | (Zero Source Code Exfiltration)    |  |
+|  | (Decoupled ITSM & SIEM Bus + DLQ)   |  | (`gemini-4-argon` / `3.8-cyber`)   |  |
 |  +-------------------------------------+  +------------------------------------+  |
 +-----------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 📋 Prerequisites in Argolis
+## 📋 Prerequisites
 
-1. **Active Argolis GCP Project**: Ensure you have Project Owner / Editor permissions.
-2. **Google Cloud SDK (`gcloud`)**: Authenticated to your user account:
+1. **Argolis GCP Organization & Project**: Active Argolis account (`[YOUR_ARGOLIS_ADMIN_USER]`) under your Argolis organization (`[YOUR_ARGOLIS_ORG_DOMAIN]`).
+2. **Google Cloud SDK (`gcloud`)**:
    ```bash
-   gcloud auth login
+   gcloud auth login [YOUR_ARGOLIS_ADMIN_USER]
    gcloud auth application-default login
    ```
 3. **Terraform**: Version `>= 1.5.0`
-4. **Kubectl**: Version `>= 1.28`
+4. **Kubectl**: Version `>= 1.28` with `gke-gcloud-auth-plugin`
 
 ---
 
-## 🚀 Step-by-Step Deployment
+## ⚡ Option A: One-Command Automated Argolis Deployment
 
-### Step 1: Enable Google Cloud APIs in Argolis
-Run the following command to activate all required APIs in your Argolis project:
+Use `scripts/deploy_argolis.sh` to automatically configure your Argolis organization/user/project, enable required GCP APIs, provision Artifact Registry + Pub/Sub + GKE Autopilot, build & deploy the Cloud Run Dispatcher service, and apply the hardened Kubernetes manifests:
 
 ```bash
-export PROJECT_ID="[YOUR_ARGOLIS_PROJECT_ID]"
-gcloud config set project ${PROJECT_ID}
+chmod +x scripts/deploy_argolis.sh
 
-gcloud services enable \
-    container.googleapis.com \
-    aiplatform.googleapis.com \
-    pubsub.googleapis.com \
-    artifactregistry.googleapis.com \
-    iamcredentials.googleapis.com \
-    cloudresourcemanager.googleapis.com
+# Full Hybrid Deployment (Cloud Run + GKE Autopilot + Pub/Sub)
+./scripts/deploy_argolis.sh \
+  --org [YOUR_ARGOLIS_ORG_DOMAIN] \
+  --user [YOUR_ARGOLIS_ADMIN_USER] \
+  --project [YOUR_ARGOLIS_PROJECT_ID] \
+  --region us-central1
 ```
 
+### Additional Flags for Specific Argolis Environments
+- `--create-vpc`: Provisions a dedicated `codemender-vpc` and `codemender-subnet` (use if your Argolis project enforces `compute.skipDefaultNetworkCreation` and has no `default` VPC).
+- `--manage-org-policies`: Automatically relaxes restrictive project-level Argolis Org Policies (`compute.vmExternalIpAccess`, `compute.requireShieldedVm`, `compute.requireOsLogin`).
+- `--create-project`: Creates the project directly under `--org` before provisioning resources.
+- `--infra-only`: Provisions only the backend infrastructure (GKE Autopilot + Pub/Sub + Artifact Registry) so you can run the Flask Dispatcher locally.
+- `--dry-run`: Generates `terraform.tfvars` and executes `terraform plan` without modifying cloud resources.
+
 ---
 
-### Step 2: Configure Terraform Variables
-Navigate to the `terraform/` directory and configure `terraform.tfvars`:
+## 🛠️ Option B: Step-by-Step Manual Deployment
+
+### Step 1: Configure Terraform Variables
+Copy the example configuration to a git-ignored `terraform.tfvars` file:
 
 ```bash
-cd codemender_dispatcher/terraform
-
+cd terraform
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars`:
+Edit `terraform.tfvars` with your Argolis environment parameters:
 ```hcl
-project_id          = "[YOUR_ARGOLIS_PROJECT_ID]"
-region              = "us-central1"
-vpc_network_name    = "default"
-vpc_subnetwork_name = "default"
+org_domain                  = "[YOUR_ARGOLIS_ORG_DOMAIN]"
+admin_user                  = "[YOUR_ARGOLIS_ADMIN_USER]"
+project_id                  = "[YOUR_ARGOLIS_PROJECT_ID]"
+create_project              = false
+region                      = "us-central1"
+create_vpc                  = false
+vpc_network_name            = "default"
+vpc_subnetwork_name         = "default"
+manage_argolis_org_policies = false
+deploy_cloud_run            = true
+dispatcher_image            = ""
 ```
 
----
-
-### Step 3: Initialize and Apply Terraform Infrastructure
-
+### Step 2: Initialize & Apply Base Infrastructure
 ```bash
-# 1. Initialize Terraform Providers
 terraform init
-
-# 2. Review Execution Plan
 terraform plan
-
-# 3. Provision Resources in Argolis
 terraform apply -auto-approve
 ```
 
-Upon completion, Terraform will output:
-- `gke_cluster_name`: `codemender-sandbox-cluster`
-- `gke_get_credentials_command`: `gcloud container clusters get-credentials ...`
-- `pubsub_topic_id`: `projects/[ARGOLIS_PROJECT_ID]/topics/codemender-security-events`
-- `dispatcher_service_account_email`: `codemender-dispatcher-sa@[ARGOLIS_PROJECT_ID].iam.gserviceaccount.com`
-- `executor_service_account_email`: `codemender-executor-sa@[ARGOLIS_PROJECT_ID].iam.gserviceaccount.com`
+### Step 3: Build & Deploy Dispatcher to Cloud Run (Optional)
+```bash
+export PROJECT_ID="[YOUR_ARGOLIS_PROJECT_ID]"
+export REGION="us-central1"
+export IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/codemender-repo/codemender-dispatcher:latest"
 
----
+# Build container image in Cloud Build and push to Artifact Registry
+gcloud builds submit .. --project="${PROJECT_ID}" --tag="${IMAGE_URI}"
 
-### Step 4: Connect `kubectl` to GKE Autopilot
-Authenticate your local/cloudtop terminal with the new GKE cluster:
+# Deploy Cloud Run service with the built image
+terraform apply -auto-approve -var="dispatcher_image=${IMAGE_URI}"
+```
 
+### Step 4: Connect `kubectl` & Apply Hardened GKE Autopilot Manifests
 ```bash
 $(terraform output -raw gke_get_credentials_command)
-```
 
-Verify the cluster connection:
-```bash
-kubectl get nodes
-```
-
----
-
-### Step 5: Apply Kubernetes Hardened Namespace & NetworkPolicies
-Apply the base and overlay Kustomize configurations to deploy the `codemender-executors` namespace with Cilium default-deny NetworkPolicies and gVisor specs:
-
-```bash
-cd codemender_dispatcher
-
+cd ..
 kubectl apply -k k8s/overlays/gke-autopilot/
+
+# Verify Namespace, ConfigMap, NetworkPolicies, and ServiceAccount
+kubectl get configmap,networkpolicy,serviceaccount -n codemender-executors
 ```
 
-Verify the namespace and policies:
+### Step 5: Run Dispatcher Locally Connected to Argolis (Hybrid Mode)
 ```bash
-kubectl get namespaces
-kubectl get networkpolicies -n codemender-executors
-kubectl get serviceaccounts -n codemender-executors
-```
-
----
-
-### Step 6: Run Dispatcher Control Plane Connected to Argolis
-
-Configure your environment variables and start the Dispatcher:
-
-```bash
-export PUBSUB_PROJECT_ID="${PROJECT_ID}"
+export GCP_PROJECT_ID="[YOUR_ARGOLIS_PROJECT_ID]"
 export PUBSUB_TOPIC_ID="codemender-security-events"
 export K8S_NAMESPACE="codemender-executors"
-export STORAGE_DIR="./storage"
+export CODEMENDER_MODEL="gemini-4-argon"
+export CODEMENDER_CLI_VERSION="0.14.0"
 
-PYTHONPATH=. FLASK_APP=src.app flask run --host=0.0.0.0 --port=8080
+PYTHONPATH=. FLASK_APP=src.app flask run --host=0.0.0.0 --port=[PORT]
 ```
-
-Access the Web Portal at `http://localhost:8080` to orchestrate scans directly against your Argolis GKE Autopilot cluster and Cloud Pub/Sub bus!
 
 ---
 
@@ -159,6 +152,6 @@ Access the Web Portal at `http://localhost:8080` to orchestrate scans directly a
 To destroy all provisioned resources in your Argolis project:
 
 ```bash
-cd codemender_dispatcher/terraform
+cd terraform
 terraform destroy -auto-approve
 ```

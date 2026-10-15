@@ -1,9 +1,16 @@
 # ==============================================================================
 # Argolis GCP Deployment Variables Example
-# Replace with your Argolis Project ID and preferred region
+# Copy to terraform.tfvars (git-ignored) and populate with your Argolis values
 # ==============================================================================
 
-project_id          = "[ARGOLIS_PROJECT_ID]"
-region              = "us-central1"
-vpc_network_name    = "default"
-vpc_subnetwork_name = "default"
+org_domain                  = "[YOUR_ARGOLIS_ORG_DOMAIN]"
+admin_user                  = "[YOUR_ARGOLIS_ADMIN_USER]"
+project_id                  = "[YOUR_ARGOLIS_PROJECT_ID]"
+create_project              = false
+region                      = "us-central1"
+create_vpc                  = false
+vpc_network_name            = "default"
+vpc_subnetwork_name         = "default"
+manage_argolis_org_policies = false
+deploy_cloud_run            = true
+dispatcher_image            = ""

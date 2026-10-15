@@ -33,7 +33,7 @@ class PersistenceManager:
         # Generate default read-only config.yaml
         config_file = config_dir / "config.yaml"
         if not config_file.exists():
-            model_name = os.environ.get("CODEMENDER_MODEL", "gemini-3.7-flash")
+            model_name = os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")
             config_content = (
                 f"model: {model_name}\n"
                 "confirm_writes: false\n"

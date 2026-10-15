@@ -4,7 +4,10 @@
 FROM debian:bookworm-slim
 
 # Prevent interactive prompts during package installation
+ARG CM_VERSION=0.14.0
 ENV DEBIAN_FRONTEND=noninteractive \
+    CODEMENDER_CLI_VERSION=${CM_VERSION} \
+    CODEMENDER_MODEL=gemini-4-argon \
     CODEMENDER_HOME=/home/cm \
     CODEMENDER_SOURCE_DIR=/workspace/source \
     CODEMENDER_OUTPUT_DIR=/workspace/output \
