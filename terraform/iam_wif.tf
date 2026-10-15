@@ -6,6 +6,8 @@
 resource "google_service_account" "codemender_dispatcher_sa" {
   account_id   = "codemender-dispatcher-sa"
   display_name = "CodeMender Dispatcher Control Plane Service Account"
+
+  depends_on = [google_project_service.enabled_apis]
 }
 
 # Grant Pub/Sub Publisher role strictly to the Dispatcher
@@ -15,15 +17,31 @@ resource "google_pubsub_topic_iam_member" "dispatcher_pubsub_publisher" {
   member = "serviceAccount:${google_service_account.codemender_dispatcher_sa.email}"
 }
 
+# Grant GKE Developer role to Dispatcher so Cloud Run can dispatch ephemeral gVisor batch jobs
+resource "google_project_iam_member" "dispatcher_gke_developer" {
+  project = local.effective_project_id
+  role    = "roles/container.developer"
+  member  = "serviceAccount:${google_service_account.codemender_dispatcher_sa.email}"
+}
+
+# Grant Vertex AI / Gemini Enterprise access to Dispatcher
+resource "google_project_iam_member" "dispatcher_aiplatform_user" {
+  project = local.effective_project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.codemender_dispatcher_sa.email}"
+}
+
 # Service Account for Execution Engine Sandbox
 resource "google_service_account" "codemender_executor_sa" {
   account_id   = "codemender-executor-sa"
   display_name = "CodeMender Ephemeral Executor Service Account"
+
+  depends_on = [google_project_service.enabled_apis]
 }
 
 # Grant Vertex AI / Gemini Enterprise access to Executor
 resource "google_project_iam_member" "executor_aiplatform_user" {
-  project = var.project_id
+  project = local.effective_project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.codemender_executor_sa.email}"
 }
@@ -32,5 +50,7 @@ resource "google_project_iam_member" "executor_aiplatform_user" {
 resource "google_service_account_iam_member" "executor_k8s_wif_binding" {
   service_account_id = google_service_account.codemender_executor_sa.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[codemender-executors/codemender-executor-ksa]"
+  member             = "serviceAccount:${local.effective_project_id}.svc.id.goog[codemender-executors/codemender-executor-ksa]"
+
+  depends_on = [google_container_cluster.codemender_cluster]
 }
