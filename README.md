@@ -20,8 +20,9 @@ CodeMender strictly decouples AI cognitive reasoning from physical code executio
    - *Phase 2 (Air-Gapped PoC Detonation)*: Network namespace severed (`--network=none`), blocking all SSRF, reverse shells, and exfiltration attempts.
 2. **GKE Autopilot & gVisor Batch Sandboxing**:
    - `K8sJobOrchestrator` provisions ephemeral `batch/v1.Job` pods with `runtimeClassName: gvisor`, `seccompProfile: RuntimeDefault`, `runAsNonRoot: true`, and memory-backed tmpfs mounts for `/run/codemender/state`.
-3. **Cilium Default-Deny NetworkPolicies & RBAC**:
-   - Blocks lateral movements to RFC1918 subnets and cloud metadata services (`169.254.169.254`).
+3. **Self-Healing Argolis Provisioning & Full Teardown**:
+   - Automatically provisions missing GCP projects, billing links, APIs, Org Policy exemptions, and dedicated VPC/Subnetwork/Cloud NAT (`codemender-vpc` / `codemender-subnet`) when Argolis disables the `default` network.
+   - Includes `scripts/destroy_argolis.sh` (and `./scripts/deploy_argolis.sh --destroy`) to cleanly tear down and recreate the entire environment at any time.
 4. **Multi-Hop AI Supply-Chain Cascade Detection**:
    - Detects `.pth` interpreter startup hooks, poisoned/typosquatted transitive dependencies, unpinned CI/CD GitHub Actions, and hardcoded fallback secrets (`demo/ai-supply-chain-cascade-demo.zip`).
 5. **Control-Plane State Journaling & Signing**:
@@ -36,9 +37,10 @@ CodeMender strictly decouples AI cognitive reasoning from physical code executio
 ```
 codemender-dispatcher/
 ├── Dockerfile                      # Dispatcher Control Plane Image (Cloud Run / Gunicorn)
-├── DEPLOYMENT_ARGOLIS.md           # Argolis GCP Hybrid Deployment Guide
+├── DEPLOYMENT_ARGOLIS.md           # Argolis GCP Hybrid Deployment & Teardown Guide
 ├── scripts/
-│   └── deploy_argolis.sh           # Automated Argolis Deployment CLI Script
+│   ├── deploy_argolis.sh           # Self-Healing Argolis Deployment CLI Script
+│   └── destroy_argolis.sh          # Full Argolis Environment Teardown & Cleanup Script
 ├── docker/                         # Sandbox Execution Engine Dockerfiles
 │   ├── base/                       # Base hardened container (cm v0.14.0 + git)
 │   ├── python/                     # Python 3.11 runtime flavor
@@ -59,7 +61,7 @@ codemender-dispatcher/
 │   ├── main.tf
 │   ├── variables.tf
 │   ├── apis_and_org_policies.tf    # Automated GCP APIs & Argolis Org Policy overrides
-│   ├── network.tf                  # Optional dedicated VPC & Subnetwork
+│   ├── network.tf                  # Dedicated VPC, Subnetwork, Cloud Router & NAT
 │   ├── gke_autopilot.tf            # Private GKE Autopilot with Datapath V2
 │   ├── cloud_run.tf                # Artifact Registry & Cloud Run Dispatcher service
 │   ├── iam_wif.tf                  # Workload Identity Federation & Scoped IAM
@@ -67,18 +69,7 @@ codemender-dispatcher/
 │   ├── outputs.tf
 │   └── terraform.tfvars.example
 ├── src/                            # Dispatcher Control Plane & Web Portal
-│   ├── app.py                      # Flask Application Factory
-│   ├── config.py                   # Configuration & Settings
-│   ├── api/                        # REST Endpoints (Scans, Verify, Fix, Webhooks, SSE)
-│   ├── web/                        # Interactive Web Portal Console
-│   ├── core/                       # Orchestration, AST/Supply-Chain Scanner & Persistence
-│   ├── itsm/                       # Decoupled ITSM & DLP Pre-Sanitizer
-│   └── models/                     # Database Layer (SQLite / PostgreSQL DAO)
 ├── demo/                           # Demo Payloads & Runbooks
-│   ├── ai-supply-chain-cascade-demo.zip
-│   ├── CODEMENDER_SCAN_VERIFY_FIX_GUIDE.md
-│   ├── CUSTOMER_ITSM_DEMO_SCRIPT.md
-│   └── itsm_demo_subscriber.py
 ├── tests/                          # Unit & Integration Test Suites (21 Tests)
 └── requirements.txt
 ```
@@ -90,19 +81,26 @@ codemender-dispatcher/
 ### 1. Deploy to an Argolis GCP Environment
 See [DEPLOYMENT_ARGOLIS.md](DEPLOYMENT_ARGOLIS.md) for full details, or run:
 ```bash
-chmod +x scripts/deploy_argolis.sh
+chmod +x scripts/deploy_argolis.sh scripts/destroy_argolis.sh
 ./scripts/deploy_argolis.sh \
   --org [YOUR_ARGOLIS_ORG_DOMAIN] \
   --user [YOUR_ARGOLIS_ADMIN_USER] \
   --project [YOUR_ARGOLIS_PROJECT_ID]
 ```
 
-### 2. Launch Dispatcher Server Locally
+### 2. Tear Down Environment (To Recreate in the Future)
+```bash
+./scripts/destroy_argolis.sh \
+  --project [YOUR_ARGOLIS_PROJECT_ID] \
+  --region us-central1
+```
+
+### 3. Launch Dispatcher Server Locally
 ```bash
 PYTHONPATH=. FLASK_APP=src.app flask run --host=0.0.0.0 --port=[PORT]
 ```
 
-### 3. Run Verification Test Suite
+### 4. Run Verification Test Suite
 ```bash
 PYTHONPATH=. python3 -m unittest discover -s tests -p "test_*.py"
 ```

@@ -1,5 +1,5 @@
 # ==============================================================================
-# Optional Dedicated VPC & Subnetwork for Argolis Environments
+# Dedicated VPC, Subnetwork, Cloud Router & Cloud NAT for Argolis Environments
 # ==============================================================================
 
 resource "google_compute_network" "codemender_vpc" {
@@ -19,6 +19,24 @@ resource "google_compute_subnetwork" "codemender_subnet" {
   region                   = var.region
   network                  = google_compute_network.codemender_vpc[0].id
   private_ip_google_access = true
+}
+
+resource "google_compute_router" "codemender_router" {
+  count   = var.create_vpc ? 1 : 0
+  project = local.effective_project_id
+  name    = "codemender-router"
+  region  = var.region
+  network = google_compute_network.codemender_vpc[0].id
+}
+
+resource "google_compute_router_nat" "codemender_nat" {
+  count                              = var.create_vpc ? 1 : 0
+  project                            = local.effective_project_id
+  name                               = "codemender-nat"
+  router                             = google_compute_router.codemender_router[0].name
+  region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }
 
 locals {

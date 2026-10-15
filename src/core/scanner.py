@@ -421,7 +421,7 @@ class DynamicCodeScanner:
             if re.search(r"f[\"'].*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE).*?{", line, re.IGNORECASE) or \
                re.search(r"execute\s*\(.*?(?:SELECT|INSERT|UPDATE|DELETE).*\+", line, re.IGNORECASE) or \
                re.search(r"execute\s*\(.*?f[\"'].*?{", line, re.IGNORECASE):
-                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode("utf-8")) % 1000:03d}"
+                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode('utf-8')) % 1000:03d}"
                 file_findings.append({
                     "id": finding_id,
                     "type": "SQL_INJECTION",
@@ -449,7 +449,7 @@ class DynamicCodeScanner:
 
             # 2. Detect Command Injection (os.system / subprocess shell=True)
             elif "os.system(" in line or ("subprocess." in line and "shell=True" in line):
-                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode("utf-8")) % 1000:03d}"
+                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode('utf-8')) % 1000:03d}"
                 file_findings.append({
                     "id": finding_id,
                     "type": "COMMAND_INJECTION",
@@ -472,7 +472,7 @@ class DynamicCodeScanner:
 
             # 3. Detect Insecure Deserialization / eval
             elif re.search(r"\beval\s*\(", line) or re.search(r"\bexec\s*\(", line):
-                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode("utf-8")) % 1000:03d}"
+                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode('utf-8')) % 1000:03d}"
                 file_findings.append({
                     "id": finding_id,
                     "type": "INSECURE_CODE_EXECUTION",
@@ -491,7 +491,7 @@ class DynamicCodeScanner:
 
             # 4. Detect Hardcoded Secrets / Tokens
             elif re.search(r"(?:api_key|secret|password|auth_token)\s*=\s*[\"'][a-zA-Z0-9_\-]{16,}[\"']", line, re.IGNORECASE):
-                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode("utf-8")) % 1000:03d}"
+                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode('utf-8')) % 1000:03d}"
                 file_findings.append({
                     "id": finding_id,
                     "type": "HARDCODED_CREDENTIAL",
@@ -514,7 +514,7 @@ class DynamicCodeScanner:
 
             # 5. Detect Python .pth Interpreter Startup Hook (Supply-Chain Cascade)
             elif rel_path.endswith(".pth") and re.match(r"^\s*import\s+[a-zA-Z0-9_]+", line):
-                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode("utf-8")) % 1000:03d}"
+                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode('utf-8')) % 1000:03d}"
                 file_findings.append({
                     "id": finding_id,
                     "type": "SUPPLY_CHAIN_PTH_STARTUP_HOOK",
@@ -536,7 +536,7 @@ class DynamicCodeScanner:
                 r"^\s*(?:litellm==1\.82\.[78]|\./simulated_poisoned_wheel|\./malicious_dep|litellm-proxy-server)",
                 line,
             ):
-                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode("utf-8")) % 1000:03d}"
+                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode('utf-8')) % 1000:03d}"
                 file_findings.append({
                     "id": finding_id,
                     "type": "SUPPLY_CHAIN_POISONED_DEPENDENCY",
@@ -564,7 +564,7 @@ class DynamicCodeScanner:
                 re.search(r"uses:\s+[a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-]+@(?:master|main)\b", line)
                 or re.search(r"^\s*permissions:\s*write-all\b", line)
             ):
-                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode("utf-8")) % 1000:03d}"
+                finding_id = f"SEC-{len(file_findings)+1:03d}-{zlib.crc32(rel_path.encode('utf-8')) % 1000:03d}"
                 file_findings.append({
                     "id": finding_id,
                     "type": "CICD_SUPPLY_CHAIN_UNPINNED_ACTION",

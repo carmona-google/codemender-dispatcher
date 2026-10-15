@@ -13,7 +13,7 @@ data "google_project" "current" {
 # push images to Artifact Registry. Grant least-privileged build roles:
 resource "google_project_iam_member" "cloudbuild_compute_sa_roles" {
   for_each = toset([
-    "roles/storage.objectAdmin",
+    "roles/storage.admin",
     "roles/logging.logWriter",
     "roles/artifactregistry.writer",
   ])
