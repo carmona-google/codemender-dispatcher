@@ -47,13 +47,18 @@ class DockerOrchestrator:
         stage: str = "all",
         model_name: Optional[str] = None,
         finding_ids: Optional[list] = None,
+        external_json_path: Optional[Path] = None,
+        source_tool: Optional[str] = None,
     ) -> Generator[str, None, int]:
         """Runs the sandbox container with watchdog timeout and yields real-time log lines."""
         active_model = model_name or os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")
         if self.client is not None:
             yield from self._run_docker_container(session_id, paths, image_name, stage, active_model)
         elif self.enable_mock_fallback:
-            yield from self._run_mock_sandbox(session_id, paths, stage, active_model, finding_ids)
+            yield from self._run_mock_sandbox(
+                session_id, paths, stage, active_model, finding_ids,
+                external_json_path=external_json_path, source_tool=source_tool,
+            )
         else:
             raise RuntimeError("Docker daemon is unavailable and mock fallback is disabled.")
 
@@ -124,8 +129,10 @@ class DockerOrchestrator:
         stage: str,
         model_name: str = "gemini-4-argon",
         finding_ids: Optional[list] = None,
+        external_json_path: Optional[Path] = None,
+        source_tool: Optional[str] = None,
     ) -> Generator[str, None, int]:
-        """Dynamically scans real uploaded code and executes the requested stage."""
+        """Dynamically scans real uploaded code or imports external JSON and executes the requested stage."""
         yield f"[DISPATCHER-v2] Sandbox active (cm v0.14.0 | Stage: {stage.upper()} | Model: {model_name}): analyzing {paths['source_dir']}...\n"
 
         from .scanner import DynamicCodeScanner
@@ -141,7 +148,16 @@ class DockerOrchestrator:
                 stage=stage,
                 finding_ids=finding_ids,
                 model_name=model_name,
+                external_json_path=external_json_path,
+                source_tool=source_tool,
             )
+            if stage == "import":
+                yield (
+                    f"[CODEMENDER-IMPORT] ({model_name}) Executed 'cm import' from "
+                    f"{report.get('external_source_tool', 'EXTERNAL_TOOL')} ({report.get('imported_file')}). "
+                    f"Imported {report.get('imported_findings_count', 0)} findings "
+                    f"(Total active findings: {report['total_vulnerabilities_found']}).\n"
+                )
             if stage in ("find", "all"):
                 yield f"[CODEMENDER-FIND] ({model_name}) Scanned codebase. Found {report['total_vulnerabilities_found']} candidate vulnerabilities.\n"
             if stage in ("verify", "all"):
