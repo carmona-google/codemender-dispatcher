@@ -4,6 +4,7 @@ from pathlib import Path
 from flask import Blueprint, render_template, current_app, abort
 
 from ..core.persistence import PersistenceManager
+from ..core.scanner import DynamicCodeScanner
 
 web_bp = Blueprint("web", __name__)
 
@@ -28,6 +29,10 @@ def scan_detail(scan_id: str):
     job_data = job.to_dict()
     persistence = PersistenceManager(Path(current_app.config["STORAGE_DIR"]))
     report = persistence.load_report(scan_id)
+    if report and isinstance(report.get("findings"), list):
+        for f in report["findings"]:
+            if not f.get("description"):
+                f["description"] = DynamicCodeScanner.get_vulnerability_description(f)
     patches = persistence.list_patches(scan_id)
     logs = persistence.load_log(scan_id)
 

@@ -8,7 +8,9 @@ A unified, enterprise-hardened remote-dispatcher system orchestrating the CodeMe
 
 CodeMender strictly decouples AI cognitive reasoning from physical code execution:
 - **Reasoning Engine (Google Cloud)**: Gemini Enterprise Agent Platform / Interactions API (`gemini-4-argon` default, with selectable `gemini-3.8-cyber-flash`, `gemini-3.7-flash`, and `gemini-2.5-pro`). Communicates over outbound-only TLS gRPC streams, receiving only isolated AST metadata, traces, and targeted snippets (Zero Source Code Exfiltration).
-- **Interactive 3-Stage Pipeline (`cm find -> cm verify -> cm fix`)**: Supports both one-click full remediation and step-by-step interactive discovery (`find`), selective air-gapped PoC exploit verification (`verify`), and verified diff patch generation (`fix`).
+- **Interactive 4-Stage Pipeline (`cm find -> cm verify -> cm fix -> Create GitHub PR`)**:
+  - **Dual Ingestion Modes**: Upload a `.zip` codebase archive or connect directly to a GitHub repository under the `carmona-google` account (or import external Wiz Code / SARIF findings via `cm import`).
+  - **Staged or Autonomous Execution**: Run step-by-step interactive discovery (`find`), selective air-gapped PoC exploit verification (`verify`), verified diff patch generation (`fix`), and **Step 4: Create Pull Request (`PULL_REQUEST`)** pushing a clean topic branch (`codemender/fix-<session_id>`) and opening a GitHub Pull Request with the proposed fixes.
 - **Physical Sandboxes (GKE Autopilot gVisor / Ephemeral Docker)**: Confined within ephemeral containers with dropped Linux capabilities (`--cap-drop=ALL`), PID limits (`pids.max=256`), memory cgroups, and gVisor kernel-level isolation.
 
 ---
