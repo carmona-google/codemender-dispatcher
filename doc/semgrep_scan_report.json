@@ -1,0 +1,42 @@
+[
+  {
+    "file_path": "codemender-cve-2026-test/app/upload.php",
+    "line": 39,
+    "title": "php.lang.security.audit.dynamic-call-user-func-wakeup",
+    "message": "Semgrep detected dynamic callback execution via call_user_func($this->auditHook, $this->stagingPath) inside __wakeup() magic method of TempUploadStagingBuffer. If untrusted session or serialized data reaches session decoding (e.g., via PHP_SESSION_UPLOAD_PROGRESS in CVE-2026-109618), an attacker can achieve arbitrary function invocation.",
+    "severity": "CRITICAL",
+    "vuln_type": "CWE-502"
+  },
+  {
+    "file_path": "codemender-cve-2026-test/app/status.php",
+    "line": 30,
+    "title": "php.lang.security.audit.information-disclosure-error-get-last",
+    "message": "Semgrep detected raw output of error_get_last() and worker_pid in JSON HTTP response. On persistent PHP-FPM workers affected by CVE-2026-109619, returning unredacted fatal error backtraces leaks cross-request memory state and sensitive arguments across tenant sessions.",
+    "severity": "HIGH",
+    "vuln_type": "CWE-209"
+  },
+  {
+    "file_path": "codemender-cve-2026-test/deploy/Dockerfile",
+    "line": 23,
+    "title": "dockerfile.security.missing-user.missing-user",
+    "message": "By not specifying a USER instruction in the Dockerfile before CMD [\"php-fpm\", \"-F\"], the container master process defaults to running as root.",
+    "severity": "MEDIUM",
+    "vuln_type": "CWE-250"
+  },
+  {
+    "file_path": "codemender-cve-2026-test/deploy/main.tf",
+    "line": 68,
+    "title": "terraform.aws.security.iam.wildcard-resource-secretsmanager",
+    "message": "IAM Policy statement 'ReadApplicationSecrets' grants 'secretsmanager:GetSecretValue' on wildcard resource 'arn:aws:secretsmanager:us-east-1:000000000000:secret:genericcorp/prod/*'. Scope the ARN to the specific secret required.",
+    "severity": "HIGH",
+    "vuln_type": "CWE-250"
+  },
+  {
+    "file_path": "codemender-cve-2026-test/deploy/main.tf",
+    "line": 116,
+    "title": "terraform.aws.security.apigateway.unauthenticated-route",
+    "message": "AWS API Gateway v2 route 'POST /upload.php' specifies authorization_type = \"NONE\", exposing the multipart upload endpoint to unauthenticated public traffic.",
+    "severity": "HIGH",
+    "vuln_type": "CWE-306"
+  }
+]

@@ -1,0 +1,102 @@
+[
+{
+  "scanId": "wiz-code-9f41e82c-3d10-4b88-9a21-77c0ffee2026",
+  "scannedAt": "2026-10-22T08:42:36Z",
+  "scannerVersion": "0.48.2",
+  "target": {
+    "type": "DIRECTORY",
+    "path": "/workspace/repos/codemender-cve-2026-test.zip",
+    "repository": "genericcorp/upload-gateway"
+  },
+  "status": "FAILED",
+  "summary": {
+    "filesScanned": 20,
+    "vulnerabilities": {
+      "CRITICAL": 4,
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 0
+    },
+    "iacFindings": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 1,
+      "LOW": 1
+    },
+    "secrets": {
+      "CRITICAL": 0,
+      "HIGH": 0
+    }
+  },
+  "vulnerabilityFindings": [
+    {
+      "id": "WIZ-VULN-2026-109618-COMPOSER",
+      "cve": "CVE-2026-109618",
+      "cvssV4": 9.2,
+      "severity": "CRITICAL",
+      "packageName": "php",
+      "installedVersion": "8.2.34",
+      "fixedVersion": "8.2.35",
+      "location": "codemender-cve-2026-test/app/composer.json",
+      "line": 7,
+      "description": "PHP Core before 8.2.35, 8.3.36, 8.4.27, and 8.5.12 suffers from Out-of-Memory zend_bailout() (longjmp) state corruption in main/rfc1867.c and ext/session/session.c."
+    },
+    {
+      "id": "WIZ-VULN-2026-109619-COMPOSER",
+      "cve": "CVE-2026-109619",
+      "cvssV4": 9.2,
+      "severity": "CRITICAL",
+      "packageName": "php",
+      "installedVersion": "8.2.34",
+      "fixedVersion": "8.2.35",
+      "location": "codemender-cve-2026-test/app/composer.json",
+      "line": 7,
+      "description": "PHP Core before 8.2.35, 8.3.36, 8.4.27, and 8.5.12 retains dangling request-heap pointers in worker-persistent globals (PS(http_session_vars), EG(last_fatal_error_backtrace)) across requests after bailout."
+    },
+    {
+      "id": "WIZ-VULN-2026-109618-DOCKER",
+      "cve": "CVE-2026-109618",
+      "cvssV4": 9.2,
+      "severity": "CRITICAL",
+      "packageName": "php:8.2.34-fpm-bookworm",
+      "installedVersion": "8.2.34",
+      "fixedVersion": "8.2.35",
+      "location": "codemender-cve-2026-test/deploy/Dockerfile",
+      "line": 9
+    },
+    {
+      "id": "WIZ-VULN-2026-109619-DOCKER",
+      "cve": "CVE-2026-109619",
+      "cvssV4": 9.2,
+      "severity": "CRITICAL",
+      "packageName": "php:8.2.34-fpm-bookworm",
+      "installedVersion": "8.2.34",
+      "fixedVersion": "8.2.35",
+      "location": "codemender-cve-2026-test/deploy/Dockerfile",
+      "line": 9
+    }
+  ],
+  "iacFindings": [
+    {
+      "ruleId": "WIZ-AWS-APIGW-004",
+      "severity": "HIGH",
+      "resourceType": "aws_apigatewayv2_route",
+      "resourceName": "unauthenticated_upload_route",
+      "location": "codemender-cve-2026-test/deploy/main.tf",
+      "line": 116,
+      "finding": "Route 'POST /upload.php' is configured with authorization_type = \"NONE\", allowing unauthenticated public access.",
+      "remediation": "Set authorization_type to 'AWS_IAM', 'CUSTOM', or 'JWT' and attach an authorizer_id."
+    },
+    {
+      "ruleId": "WIZ-AWS-IAM-019",
+      "severity": "HIGH",
+      "resourceType": "aws_iam_role_policy",
+      "resourceName": "genericcorp_upload_worker_policy",
+      "location": "codemender-cve-2026-test/deploy/main.tf",
+      "line": 56,
+      "finding": "IAM Policy statement 'ReadApplicationSecrets' grants 'secretsmanager:GetSecretValue' on wildcard resource 'arn:aws:secretsmanager:us-east-1:000000000000:secret:genericcorp/prod/*'.",
+      "remediation": "Scope the Resource ARN to the specific secret required by the upload worker task."
+    }
+  ]
+}
+]

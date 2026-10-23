@@ -1,0 +1,62 @@
+{
+  "scan_metadata": {
+    "scanner": "Wiz Code Unified Scanner (wizcli v0.48.2)",
+    "scan_id": "wiz-scan-9f8e7d6c-2026-10-22",
+    "timestamp": "2026-10-22T08:40:12Z",
+    "target_archive": "codemender-cve-2026-test.zip",
+    "policy_evaluated": "Default-Code-And-Supply-Chain-Policy-v4",
+    "status": "FAILED_POLICY"
+  },
+  "summary": {
+    "total_findings": 3,
+    "by_severity": {
+      "CRITICAL": 2,
+      "HIGH": 1,
+      "MEDIUM": 0,
+      "LOW": 0
+    }
+  },
+  "vulnerabilities": [
+    {
+      "id": "WIZ-VULN-2026-109618-COMPOSER",
+      "cve": "CVE-2026-109618",
+      "cwe": "CWE-502",
+      "severity": "CRITICAL",
+      "cvss_v3_score": 9.8,
+      "package_name": "phpunit/phpunit",
+      "installed_version": "^10.5.0",
+      "fixed_version": "10.5.38",
+      "ecosystem": "Packagist (PHP Composer)",
+      "file_path": "composer.json",
+      "line": 12,
+      "description": "PHPUnit before 10.5.38 contains an unsafe PHPT coverage deserialization and environment-variable command injection sink when invoked with coverage options in CI runners."
+    },
+    {
+      "id": "WIZ-VULN-2026-109619-PIP",
+      "cve": "CVE-2026-109619",
+      "cwe": "CWE-78",
+      "severity": "CRITICAL",
+      "cvss_v3_score": 9.6,
+      "package_name": "pytest-cov-bridge",
+      "installed_version": "1.4.2",
+      "fixed_version": "1.4.3",
+      "ecosystem": "PyPI (Python pip)",
+      "file_path": "requirements.txt",
+      "line": 4,
+      "description": "pytest-cov-bridge 1.4.2 passes unvalidated environment variables and coverage report filenames to a shell subprocess during XML coverage aggregation."
+    }
+  ],
+  "sast_cicd_findings": [
+    {
+      "id": "WIZ-SAST-GHA-0019",
+      "rule_id": "CICD-GHA-UNTRUSTED-CHECKOUT-PR-TARGET",
+      "cwe": "CWE-829",
+      "severity": "HIGH",
+      "file_path": ".github/workflows/ci-verification.yml",
+      "line": 18,
+      "title": "Dangerous Workflow: Untrusted Code Checkout on pull_request_target with Secrets Access",
+      "snippet": "on: [pull_request_target] ... uses: actions/checkout@v4 with: ref: ${{ github.event.pull_request.head.sha }}",
+      "remediation_guidance": "Do not check out untrusted PR head refs inside a pull_request_target workflow, or isolate build/test execution in an unprivileged pull_request workflow without secrets."
+    }
+  ]
+}
