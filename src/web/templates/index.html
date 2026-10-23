@@ -4,26 +4,88 @@
 <div class="space-y-8">
     <!-- Top Action Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Upload Card -->
+        <!-- Upload or GitHub Repo Card -->
         <div class="lg:col-span-2 bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-xl">
-            <h2 class="text-lg font-semibold text-white mb-2 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                </svg>
-                Upload Codebase Archive &amp; Configure Pipeline
-            </h2>
-            <p class="text-sm text-slate-400 mb-6">
-                Upload a <code class="text-indigo-300 font-mono">.zip</code> codebase archive, choose your reasoning model, and either start with <strong>Step 1: Scan (<code class="text-indigo-300 font-mono">cm find</code>)</strong> to interactively select which Finding IDs to verify (<code class="text-amber-300 font-mono">cm verify</code>) and patch (<code class="text-emerald-300 font-mono">cm fix</code>), or run all 3 stages autonomously.
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                <h2 class="text-lg font-semibold text-white flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    Upload Codebase Archive or Connect GitHub Repo
+                </h2>
+
+                <!-- Source Mode Toggle: Zip vs GitHub (carmona-google) -->
+                <div class="inline-flex rounded-lg bg-slate-900 p-1 border border-slate-700 text-xs">
+                    <button type="button" id="tabZipBtn" onclick="setSourceMode('zip')"
+                        class="px-3 py-1.5 rounded-md font-semibold bg-indigo-600 text-white shadow transition">
+                        📦 .zip Archive
+                    </button>
+                    <button type="button" id="tabGithubBtn" onclick="setSourceMode('github')"
+                        class="px-3 py-1.5 rounded-md font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1">
+                        <span>🐙 GitHub Repo (<code class="font-mono">carmona-google</code>)</span>
+                    </button>
+                </div>
+            </div>
+            <p class="text-sm text-slate-400 mb-5">
+                Upload a <code class="text-indigo-300 font-mono">.zip</code> codebase archive or connect a GitHub repository using the <strong class="text-purple-300 font-mono">carmona-google</strong> account. Run interactively step-by-step (<code class="text-indigo-300 font-mono">cm find</code> &rarr; <code class="text-amber-300 font-mono">cm verify</code> &rarr; <code class="text-emerald-300 font-mono">cm fix</code> &rarr; <code class="text-purple-300 font-mono">Create PR</code>) or autonomously.
             </p>
 
             <form id="uploadForm" enctype="multipart/form-data" class="space-y-5">
+                <input type="hidden" id="sourceModeInput" value="zip">
+
+                <!-- Panel A: ZIP Upload -->
                 <div class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-8 text-center cursor-pointer transition bg-slate-900/50" id="dropZone">
-                    <input type="file" name="file" id="fileInput" accept=".zip,.tar.gz" class="hidden" required>
+                    <input type="file" name="file" id="fileInput" accept=".zip,.tar.gz" class="hidden">
                     <svg class="w-12 h-12 mx-auto text-slate-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                     <p class="text-sm font-medium text-slate-300" id="fileLabel">Drag &amp; drop your archive here, or <span class="text-indigo-400 underline">browse</span></p>
                     <p class="text-xs text-slate-500 mt-1">Supports .zip (max 100MB)</p>
+                </div>
+
+                <!-- Panel B: GitHub Repository Connection (carmona-google) -->
+                <div id="githubPanel" class="hidden border border-purple-500/40 rounded-xl p-5 bg-slate-900/70 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 rounded text-xs font-mono bg-purple-950/90 text-purple-300 border border-purple-700">
+                                Account: carmona-google
+                            </span>
+                            <span class="text-xs text-slate-400">Clone repository &amp; enable Step 4 Pull Request creation</span>
+                        </div>
+                        <button type="button" onclick="loadGithubRepos()" class="text-xs text-purple-400 hover:text-purple-300 underline font-mono">
+                            Refresh Repos
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                                GitHub Repository (<code class="text-purple-300">carmona-google/...</code> or URL)
+                            </label>
+                            <input type="text" name="github_repo" id="githubRepoInput" list="githubRepoPresets"
+                                placeholder="carmona-google/codemender-demo-app"
+                                class="w-full bg-slate-950 border border-slate-700 text-slate-200 font-mono text-xs rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500">
+                            <datalist id="githubRepoPresets">
+                                <option value="carmona-google/codemender-demo-app">CodeMender vulnerable polyglot demonstration service</option>
+                                <option value="carmona-google/supply-chain-demo">Supply-chain &amp; CI/CD security testbed repository</option>
+                                <option value="carmona-google/ai-agent-databot">AI Agent &amp; LLM tool execution security benchmark</option>
+                            </datalist>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Base Branch</label>
+                            <input type="text" name="github_branch" id="githubBranchInput" value="main"
+                                class="w-full bg-slate-950 border border-slate-700 text-slate-200 font-mono text-xs rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                            Optional GitHub PAT Override (<span class="text-slate-500 normal-case">uses env <code class="font-mono">GITHUB_TOKEN</code> for <code class="font-mono">carmona-google</code> if blank</span>)
+                        </label>
+                        <input type="password" name="github_token" id="githubTokenInput" placeholder="Uses configured GITHUB_TOKEN environment variable by default"
+                            class="w-full bg-slate-950 border border-slate-800 text-slate-300 font-mono text-xs rounded-lg px-3 py-1.5 focus:ring-purple-500 focus:border-purple-500">
+                    </div>
                 </div>
 
                 <!-- Configuration Controls: Model, Stage Mode, Runtime Flavor -->
@@ -43,7 +105,8 @@
                         <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Execution Mode</label>
                         <select name="stage" id="stageSelect" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="find" selected>Step 1 Only: Scan (cm find) &rarr; Choose IDs Next</option>
-                            <option value="all">Autonomous Full Cycle (find &rarr; verify &rarr; fix)</option>
+                            <option value="all">Autonomous Cycle (find &rarr; verify &rarr; fix)</option>
+                            <option value="all_with_pr">Autonomous Cycle + Create GitHub PR (find &rarr; verify &rarr; fix &rarr; PR)</option>
                         </select>
                     </div>
 
@@ -69,16 +132,20 @@
             </form>
         </div>
 
-        <!-- 3-Stage Workflow Overview Card -->
+        <!-- 4-Stage + External Import Workflow Overview Card -->
         <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-6 shadow-xl flex flex-col justify-between">
             <div>
                 <h3 class="text-base font-semibold text-white mb-3 flex items-center">
                     <svg class="w-5 h-5 mr-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                     </svg>
-                    3-Stage Interactive Lifecycle
+                    Interactive Lifecycle &amp; GitHub PR Delivery
                 </h3>
                 <ul class="space-y-3 text-xs text-slate-300">
+                    <li class="flex items-start">
+                        <span class="px-1.5 py-0.5 rounded bg-cyan-900 text-cyan-300 font-mono font-bold mr-2">0. IMPORT</span>
+                        <span><strong><code class="text-cyan-300">cm import</code>:</strong> Ingest local <code class="text-slate-400">.json</code> reports from external tools (Wiz Code, SARIF, Snyk, Trivy, Semgrep) and correlate them with your codebase.</span>
+                    </li>
                     <li class="flex items-start">
                         <span class="px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300 font-mono font-bold mr-2">1. SCAN</span>
                         <span><strong><code class="text-indigo-300">cm find</code>:</strong> Parses AST, CI/CD workflows, and dependency manifests to identify candidate vulnerabilities.</span>
@@ -91,13 +158,84 @@
                         <span class="px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-300 font-mono font-bold mr-2">3. FIX</span>
                         <span><strong><code class="text-emerald-300">cm fix</code>:</strong> Select verified Finding IDs to generate and regression-test unified <code class="text-slate-400">.diff</code> patches.</span>
                     </li>
+                    <li class="flex items-start">
+                        <span class="px-1.5 py-0.5 rounded bg-purple-900 text-purple-300 font-mono font-bold mr-2">4. PR</span>
+                        <span><strong><code class="text-purple-300">GitHub PR</code>:</strong> Pushes a clean remediation branch and opens a Pull Request via <code class="text-purple-300">carmona-google</code> with the Fix changes.</span>
+                    </li>
                 </ul>
             </div>
             <div class="mt-6 pt-4 border-t border-slate-700/60 text-xs text-slate-500 flex items-center justify-between">
-                <span>CLI: cm v0.14.0 &bull; Model: gemini-4-argon</span>
+                <span>CLI: cm v0.14.0 &bull; GitHub: carmona-google</span>
                 <span class="text-emerald-400 font-mono">gVisor + Zero Egress</span>
             </div>
         </div>
+    </div>
+
+    <!-- Import from External Tools (cm import) Card -->
+    <div class="bg-slate-800/90 border border-cyan-500/40 rounded-xl p-6 shadow-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-white flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    Import from External Tools (<code class="text-cyan-300 font-mono ml-1.5">cm import</code>)
+                </h2>
+                <p class="text-sm text-slate-400 mt-0.5">
+                    Import a local <code class="text-cyan-300 font-mono">.json</code> vulnerability report from external scanners (<strong>Wiz Code</strong>, <strong>SARIF v2.1.0</strong>, <strong>Trivy</strong>, <strong>Snyk</strong>, <strong>Semgrep</strong>), run <code class="text-cyan-300 font-mono">cm import</code>, and inspect/verify/patch the imported findings in the CodeMender console.
+                </p>
+            </div>
+            <span class="px-2.5 py-1 rounded text-xs font-mono bg-cyan-950/80 text-cyan-300 border border-cyan-700 whitespace-nowrap">
+                CLI: cm import --from-json
+            </span>
+        </div>
+
+        <form id="importExternalForm" enctype="multipart/form-data" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div class="md:col-span-4">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Local External Tool JSON File</label>
+                <input type="file" name="json_file" id="importJsonInput" accept=".json,.sarif" required
+                    class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 file:mr-3 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-cyan-900/60 file:text-cyan-200 hover:file:bg-cyan-800/60 cursor-pointer">
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">External Tool Format</label>
+                <select name="source_tool" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2.5 focus:ring-cyan-500 focus:border-cyan-500">
+                    <option value="" selected>Auto-Detect (Wiz / SARIF / Generic)</option>
+                    <option value="WIZ_CODE">Wiz Code (wizcli JSON)</option>
+                    <option value="WIZ_PENTEST">Wiz Penetration Test Finding</option>
+                    <option value="SARIF">SARIF v2.1.0 (CodeQL / Semgrep)</option>
+                    <option value="TRIVY">Trivy JSON</option>
+                    <option value="SNYK">Snyk JSON</option>
+                </select>
+            </div>
+
+            <div class="md:col-span-3">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Target Scan Session</label>
+                <select name="target_session_id" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs font-mono rounded-lg px-3 py-2.5 focus:ring-cyan-500 focus:border-cyan-500">
+                    <option value="" selected>+ Create New Session from JSON</option>
+                    {% for scan in scans %}
+                    <option value="{{ scan.id }}">{{ scan.id }} ({{ (scan.source_filename or 'Upload')[:24] }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="md:col-span-3 flex items-center space-x-2">
+                <div class="flex-1">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Gemini Model</label>
+                    <select name="model_name" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-2.5 focus:ring-cyan-500 focus:border-cyan-500">
+                        <option value="gemini-4-argon" selected>gemini-4-argon</option>
+                        <option value="gemini-4">gemini-4</option>
+                        <option value="gemini-3.8-cyber-flash">gemini-3.8-cyber-flash</option>
+                    </select>
+                </div>
+                <button type="submit" id="importSubmitBtn" class="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg shadow-lg transition whitespace-nowrap flex items-center space-x-1.5">
+                    <span>Run cm import</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                    </svg>
+                </button>
+            </div>
+        </form>
     </div>
 
     <!-- Recent Scans Table -->
@@ -108,12 +246,12 @@
                 <thead class="text-xs uppercase bg-slate-900/60 text-slate-400 border-b border-slate-700">
                     <tr>
                         <th class="px-4 py-3">Scan ID</th>
-                        <th class="px-4 py-3">Codebase</th>
+                        <th class="px-4 py-3">Codebase / GitHub Repo</th>
                         <th class="px-4 py-3">Model</th>
                         <th class="px-4 py-3">Status</th>
                         <th class="px-4 py-3">Stage</th>
                         <th class="px-4 py-3">Candidates / Verified</th>
-                        <th class="px-4 py-3">Patches</th>
+                        <th class="px-4 py-3">Patches &amp; PR</th>
                         <th class="px-4 py-3">Date</th>
                         <th class="px-4 py-3 text-right">Action</th>
                     </tr>
@@ -122,7 +260,15 @@
                     {% for scan in scans %}
                     <tr class="hover:bg-slate-700/30 transition">
                         <td class="px-4 py-3 font-mono text-xs text-indigo-400">{{ scan.id }}</td>
-                        <td class="px-4 py-3">{{ scan.source_filename or 'Direct Upload' }}</td>
+                        <td class="px-4 py-3">
+                            {% if scan.github_repo %}
+                            <span class="px-2 py-0.5 rounded text-xs font-mono bg-purple-950/70 text-purple-300 border border-purple-700/60">
+                                🐙 {{ scan.github_repo }}@{{ scan.github_branch or 'main' }}
+                            </span>
+                            {% else %}
+                            {{ scan.source_filename or 'Direct Upload' }}
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3">
                             <span class="px-2 py-0.5 rounded text-xs font-mono bg-slate-900 text-cyan-300 border border-slate-700">
                                 {{ scan.model_name or 'gemini-4-argon' }}
@@ -144,7 +290,15 @@
                             <span class="text-white font-semibold">{{ scan.vulnerabilities_found }}</span> found /
                             <span class="text-amber-400 font-semibold">{{ scan.vulnerabilities_verified }}</span> verified
                         </td>
-                        <td class="px-4 py-3 text-emerald-400 font-semibold">{{ scan.patches_applied }}</td>
+                        <td class="px-4 py-3">
+                            <span class="text-emerald-400 font-semibold">{{ scan.patches_applied }}</span>
+                            {% if scan.pr_url %}
+                            <a href="{{ scan.pr_url }}" target="_blank" rel="noopener"
+                                class="ml-2 px-2 py-0.5 rounded text-xs font-mono bg-purple-900/80 text-purple-200 border border-purple-600 hover:bg-purple-800 transition">
+                                PR #{{ scan.pr_number or 'Open' }} &nearr;
+                            </a>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-xs text-slate-500">{{ scan.created_at[:16].replace('T', ' ') if scan.created_at else '-' }}</td>
                         <td class="px-4 py-3 text-right">
                             <a href="/scans/{{ scan.id }}" class="text-xs text-indigo-400 hover:text-indigo-300 underline font-medium">Open Console &rarr;</a>
@@ -152,7 +306,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="9" class="text-center py-8 text-slate-500 text-sm">No scans performed yet. Upload an archive above to get started.</td>
+                        <td colspan="9" class="text-center py-8 text-slate-500 text-sm">No scans performed yet. Upload an archive or connect a GitHub repository above to get started.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -163,9 +317,55 @@
 
 <script>
     const dropZone = document.getElementById('dropZone');
+    const githubPanel = document.getElementById('githubPanel');
+    const sourceModeInput = document.getElementById('sourceModeInput');
+    const tabZipBtn = document.getElementById('tabZipBtn');
+    const tabGithubBtn = document.getElementById('tabGithubBtn');
     const fileInput = document.getElementById('fileInput');
     const fileLabel = document.getElementById('fileLabel');
+    const githubRepoInput = document.getElementById('githubRepoInput');
     const uploadForm = document.getElementById('uploadForm');
+    const importExternalForm = document.getElementById('importExternalForm');
+
+    function setSourceMode(mode) {
+        sourceModeInput.value = mode;
+        if (mode === 'github') {
+            dropZone.classList.add('hidden');
+            githubPanel.classList.remove('hidden');
+            fileInput.value = '';
+            tabGithubBtn.className = 'px-3 py-1.5 rounded-md font-semibold bg-purple-600 text-white shadow transition flex items-center space-x-1';
+            tabZipBtn.className = 'px-3 py-1.5 rounded-md font-semibold text-slate-300 hover:text-white transition';
+            if (!githubRepoInput.value) {
+                githubRepoInput.value = 'carmona-google/codemender-demo-app';
+            }
+            loadGithubRepos();
+        } else {
+            githubPanel.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+            githubRepoInput.value = '';
+            tabZipBtn.className = 'px-3 py-1.5 rounded-md font-semibold bg-indigo-600 text-white shadow transition';
+            tabGithubBtn.className = 'px-3 py-1.5 rounded-md font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1';
+        }
+    }
+
+    async function loadGithubRepos() {
+        try {
+            const resp = await fetch('/api/v1/scans/github/repos?account=carmona-google');
+            const data = await resp.json();
+            if (resp.ok && Array.isArray(data.repositories)) {
+                const datalist = document.getElementById('githubRepoPresets');
+                datalist.innerHTML = '';
+                data.repositories.forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.full_name;
+                    opt.textContent = r.description || r.html_url;
+                    datalist.appendChild(opt);
+                });
+            }
+        } catch (err) {
+            console.warn('Could not fetch GitHub repo list:', err);
+        }
+    }
 
     dropZone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
@@ -176,10 +376,30 @@
 
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const mode = sourceModeInput.value;
+        if (mode === 'zip' && (!fileInput.files || fileInput.files.length === 0)) {
+            alert('Please select a .zip codebase archive or switch to the GitHub Repo tab.');
+            return;
+        }
+        if (mode === 'github' && !githubRepoInput.value.trim()) {
+            alert('Please enter a GitHub repository under carmona-google.');
+            return;
+        }
+
         const formData = new FormData(uploadForm);
+        if (mode === 'zip') {
+            formData.delete('github_repo');
+            formData.delete('github_branch');
+            formData.delete('github_token');
+        } else {
+            formData.delete('file');
+        }
+
         const submitBtn = document.getElementById('submitBtn');
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span>Uploading &amp; Running Stage...</span>';
+        submitBtn.innerHTML = mode === 'github'
+            ? '<span>Connecting carmona-google Repo &amp; Running...</span>'
+            : '<span>Uploading &amp; Running Stage...</span>';
 
         try {
             const resp = await fetch('/api/v1/scans', {
@@ -190,7 +410,7 @@
             if (resp.ok && data.session_id) {
                 window.location.href = `/scans/${data.session_id}`;
             } else {
-                alert(`Upload failed: ${data.error || 'Unknown error'}`);
+                alert(`Submission failed: ${data.error || 'Unknown error'}`);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<span>Start CodeMender Session</span>';
             }
@@ -198,6 +418,33 @@
             alert(`Error dispatching scan: ${err}`);
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<span>Start CodeMender Session</span>';
+        }
+    });
+
+    importExternalForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(importExternalForm);
+        const importBtn = document.getElementById('importSubmitBtn');
+        importBtn.disabled = true;
+        importBtn.innerHTML = '<span>Importing (cm import)...</span>';
+
+        try {
+            const resp = await fetch('/api/v1/scans/import', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            if (resp.ok && data.session_id) {
+                window.location.href = `/scans/${data.session_id}`;
+            } else {
+                alert(`cm import failed: ${data.error || 'Unknown error'}`);
+                importBtn.disabled = false;
+                importBtn.innerHTML = '<span>Run cm import</span>';
+            }
+        } catch (err) {
+            alert(`Error running cm import: ${err}`);
+            importBtn.disabled = false;
+            importBtn.innerHTML = '<span>Run cm import</span>';
         }
     });
 </script>

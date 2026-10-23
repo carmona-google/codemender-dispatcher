@@ -19,9 +19,11 @@ class ScanStatus(str, Enum):
 class ScanStage(str, Enum):
     INGESTION = "INGESTION"
     PROVISIONING = "PROVISIONING"
+    IMPORT = "IMPORT"
     FIND = "FIND"
     VERIFY = "VERIFY"
     FIX = "FIX"
+    PULL_REQUEST = "PULL_REQUEST"
     REPORTING = "REPORTING"
     TEARDOWN = "TEARDOWN"
 
@@ -48,6 +50,10 @@ class ScanJob:
         patches_applied: int = 0,
         token_usage_json: str = "{}",
         error_message: Optional[str] = None,
+        github_repo: Optional[str] = None,
+        github_branch: Optional[str] = None,
+        pr_url: Optional[str] = None,
+        pr_number: Optional[int] = None,
     ):
         self.id = id
         self.created_at = created_at or _utc_now_str()
@@ -62,6 +68,10 @@ class ScanJob:
         self.patches_applied = patches_applied
         self.token_usage_json = token_usage_json
         self.error_message = error_message
+        self.github_repo = github_repo
+        self.github_branch = github_branch
+        self.pr_url = pr_url
+        self.pr_number = pr_number
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -78,6 +88,10 @@ class ScanJob:
             "patches_applied": self.patches_applied,
             "token_usage": json.loads(self.token_usage_json or "{}"),
             "error_message": self.error_message,
+            "github_repo": self.github_repo,
+            "github_branch": self.github_branch,
+            "pr_url": self.pr_url,
+            "pr_number": self.pr_number,
         }
 
 
@@ -105,7 +119,7 @@ class DatabaseManager:
             conn.close()
 
     def init_schema(self):
-        """Creates tables if they do not exist and migrates model_name column."""
+        """Creates tables if they do not exist and migrates new columns."""
         with self._get_connection() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS scan_jobs (
@@ -121,13 +135,25 @@ class DatabaseManager:
                     vulnerabilities_verified INTEGER DEFAULT 0,
                     patches_applied INTEGER DEFAULT 0,
                     token_usage_json TEXT DEFAULT '{}',
-                    error_message TEXT
+                    error_message TEXT,
+                    github_repo TEXT,
+                    github_branch TEXT,
+                    pr_url TEXT,
+                    pr_number INTEGER
                 )
             """)
             # Ensure backwards compatibility with existing database files
             cols = [row["name"] for row in conn.execute("PRAGMA table_info(scan_jobs)").fetchall()]
             if "model_name" not in cols:
                 conn.execute("ALTER TABLE scan_jobs ADD COLUMN model_name TEXT DEFAULT 'gemini-4-argon'")
+            if "github_repo" not in cols:
+                conn.execute("ALTER TABLE scan_jobs ADD COLUMN github_repo TEXT")
+            if "github_branch" not in cols:
+                conn.execute("ALTER TABLE scan_jobs ADD COLUMN github_branch TEXT")
+            if "pr_url" not in cols:
+                conn.execute("ALTER TABLE scan_jobs ADD COLUMN pr_url TEXT")
+            if "pr_number" not in cols:
+                conn.execute("ALTER TABLE scan_jobs ADD COLUMN pr_number INTEGER")
             conn.commit()
 
     def save_job(self, job: ScanJob):
@@ -138,8 +164,9 @@ class DatabaseManager:
                 INSERT INTO scan_jobs (
                     id, created_at, updated_at, status, stage, source_filename,
                     language_flavor, model_name, vulnerabilities_found,
-                    vulnerabilities_verified, patches_applied, token_usage_json, error_message
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    vulnerabilities_verified, patches_applied, token_usage_json, error_message,
+                    github_repo, github_branch, pr_url, pr_number
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     updated_at=excluded.updated_at,
                     status=excluded.status,
@@ -151,14 +178,41 @@ class DatabaseManager:
                     vulnerabilities_verified=excluded.vulnerabilities_verified,
                     patches_applied=excluded.patches_applied,
                     token_usage_json=excluded.token_usage_json,
-                    error_message=excluded.error_message
+                    error_message=excluded.error_message,
+                    github_repo=excluded.github_repo,
+                    github_branch=excluded.github_branch,
+                    pr_url=excluded.pr_url,
+                    pr_number=excluded.pr_number
             """, (
                 job.id, job.created_at, job.updated_at, job.status, job.stage,
                 job.source_filename, job.language_flavor, job.model_name,
                 job.vulnerabilities_found, job.vulnerabilities_verified,
-                job.patches_applied, job.token_usage_json, job.error_message
+                job.patches_applied, job.token_usage_json, job.error_message,
+                job.github_repo, job.github_branch, job.pr_url, job.pr_number
             ))
             conn.commit()
+
+    def _row_to_job(self, row: sqlite3.Row) -> ScanJob:
+        row_keys = row.keys()
+        return ScanJob(
+            id=row["id"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            status=row["status"],
+            stage=row["stage"],
+            source_filename=row["source_filename"],
+            language_flavor=row["language_flavor"],
+            model_name=row["model_name"] if "model_name" in row_keys else "gemini-4-argon",
+            vulnerabilities_found=row["vulnerabilities_found"],
+            vulnerabilities_verified=row["vulnerabilities_verified"],
+            patches_applied=row["patches_applied"],
+            token_usage_json=row["token_usage_json"],
+            error_message=row["error_message"],
+            github_repo=row["github_repo"] if "github_repo" in row_keys else None,
+            github_branch=row["github_branch"] if "github_branch" in row_keys else None,
+            pr_url=row["pr_url"] if "pr_url" in row_keys else None,
+            pr_number=row["pr_number"] if "pr_number" in row_keys else None,
+        )
 
     def get_job(self, job_id: str) -> Optional[ScanJob]:
         """Fetches a scan job by ID."""
@@ -167,22 +221,7 @@ class DatabaseManager:
             row = cursor.fetchone()
             if not row:
                 return None
-            row_keys = row.keys()
-            return ScanJob(
-                id=row["id"],
-                created_at=row["created_at"],
-                updated_at=row["updated_at"],
-                status=row["status"],
-                stage=row["stage"],
-                source_filename=row["source_filename"],
-                language_flavor=row["language_flavor"],
-                model_name=row["model_name"] if "model_name" in row_keys else "gemini-4-argon",
-                vulnerabilities_found=row["vulnerabilities_found"],
-                vulnerabilities_verified=row["vulnerabilities_verified"],
-                patches_applied=row["patches_applied"],
-                token_usage_json=row["token_usage_json"],
-                error_message=row["error_message"],
-            )
+            return self._row_to_job(row)
 
     def list_jobs(self, limit: int = 50) -> List[ScanJob]:
         """Lists recent scan jobs."""
@@ -191,24 +230,7 @@ class DatabaseManager:
                 "SELECT * FROM scan_jobs ORDER BY created_at DESC LIMIT ?", (limit,)
             )
             rows = cursor.fetchall()
-            return [
-                ScanJob(
-                    id=row["id"],
-                    created_at=row["created_at"],
-                    updated_at=row["updated_at"],
-                    status=row["status"],
-                    stage=row["stage"],
-                    source_filename=row["source_filename"],
-                    language_flavor=row["language_flavor"],
-                    model_name=row["model_name"] if "model_name" in row.keys() else "gemini-4-argon",
-                    vulnerabilities_found=row["vulnerabilities_found"],
-                    vulnerabilities_verified=row["vulnerabilities_verified"],
-                    patches_applied=row["patches_applied"],
-                    token_usage_json=row["token_usage_json"],
-                    error_message=row["error_message"],
-                )
-                for row in rows
-            ]
+            return [self._row_to_job(row) for row in rows]
 
 
 def init_db(database_uri: str) -> DatabaseManager:

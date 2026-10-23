@@ -10,14 +10,27 @@
                 <span class="font-mono text-xs px-2.5 py-1 rounded bg-slate-900 text-indigo-400 border border-slate-700">{{ scan.id }}</span>
                 <span class="font-mono text-xs px-2.5 py-1 rounded bg-slate-900 text-emerald-300 border border-slate-700">CLI: <strong>cm v0.14.0</strong></span>
                 <span class="font-mono text-xs px-2.5 py-1 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-700">Model: <strong id="activeModelBadge">{{ scan.model_name or 'gemini-4-argon' }}</strong></span>
+                {% if scan.github_repo %}
+                <span class="font-mono text-xs px-2.5 py-1 rounded bg-purple-950/80 text-purple-300 border border-purple-700">
+                    🐙 Repo: <strong>{{ scan.github_repo }}@{{ scan.github_branch or 'main' }}</strong>
+                </span>
+                {% endif %}
             </div>
             <p class="text-xs text-slate-400 mt-1.5">
                 Codebase: <span class="text-slate-200">{{ scan.source_filename or 'Direct Upload' }}</span> &bull;
-                Sandbox Runtime: <span class="text-slate-200">{{ scan.language_flavor }}</span>
+                Sandbox Runtime: <span class="text-slate-200">{{ scan.language_flavor }}</span> &bull;
+                GitHub Account: <span class="text-purple-300 font-mono">carmona-google</span>
             </p>
         </div>
 
         <div class="flex items-center space-x-3">
+            {% if scan.pr_url %}
+            <a href="{{ scan.pr_url }}" target="_blank" rel="noopener"
+                class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow transition flex items-center space-x-1.5">
+                <span>🐙 View PR #{{ scan.pr_number or 'Open' }}</span>
+                <span>&nearr;</span>
+            </a>
+            {% endif %}
             <div id="statusBadge" class="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider
                 {% if scan.status == 'COMPLETED' %}bg-emerald-900/80 text-emerald-300 border border-emerald-700
                 {% elif scan.status == 'RUNNING' %}bg-amber-900/80 text-amber-300 border border-amber-700 animate-pulse
@@ -29,8 +42,28 @@
         </div>
     </div>
 
+    {% if scan.pr_url %}
+    <!-- Pull Request Created Banner -->
+    <div class="bg-purple-950/40 border border-purple-500/50 rounded-xl px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <span class="px-2.5 py-1 rounded text-xs font-mono font-bold bg-purple-900 text-purple-200 border border-purple-600">
+                STEP 4 COMPLETE &bull; GITHUB PR
+            </span>
+            <span class="text-xs text-slate-200">
+                Pull Request <strong class="text-purple-300 font-mono">#{{ scan.pr_number or '202' }}</strong> opened on
+                <code class="text-purple-300 font-mono">{{ scan.github_repo or 'carmona-google/codemender-demo-app' }}</code>
+                using account <strong class="text-purple-300 font-mono">carmona-google</strong>.
+            </span>
+        </div>
+        <a href="{{ scan.pr_url }}" target="_blank" rel="noopener"
+            class="text-xs font-mono font-semibold text-purple-300 hover:text-white underline whitespace-nowrap">
+            {{ scan.pr_url }} &nearr;
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Summary Metrics -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4 text-center">
             <span class="text-xs text-slate-400">1. Candidate Findings (<code class="text-indigo-300">cm find</code>)</span>
             <p class="text-2xl font-bold text-white mt-1">{{ scan.vulnerabilities_found }}</p>
@@ -44,12 +77,22 @@
             <p class="text-2xl font-bold text-emerald-400 mt-1">{{ scan.patches_applied }}</p>
         </div>
         <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4 text-center">
+            <span class="text-xs text-slate-400">4. GitHub Pull Request (<code class="text-purple-300">carmona-google</code>)</span>
+            <p class="text-lg font-bold text-purple-400 mt-1.5 font-mono">
+                {% if scan.pr_url %}
+                <a href="{{ scan.pr_url }}" target="_blank" rel="noopener" class="underline hover:text-purple-300">PR #{{ scan.pr_number or '202' }} &nearr;</a>
+                {% else %}
+                Pending
+                {% endif %}
+            </p>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4 text-center">
             <span class="text-xs text-slate-400">Gemini Tokens Consumed</span>
             <p class="text-2xl font-bold text-indigo-400 mt-1">{{ scan.token_usage.total_tokens or 0 }}</p>
         </div>
     </div>
 
-    <!-- Interactive 3-Stage Action Bar (Scan / Verify / Fix + Model + ID Selector) -->
+    <!-- Interactive 4-Stage Action Bar (Scan / Verify / Fix / Create PR + Model + ID Selector) -->
     <div class="bg-slate-800/90 border border-indigo-500/40 rounded-xl p-6 shadow-xl space-y-5">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-700 pb-4">
             <div>
@@ -57,10 +100,10 @@
                     <svg class="w-5 h-5 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                     </svg>
-                    Step-by-Step Pipeline Controller: Scan &rarr; Verify &rarr; Fix
+                    Step-by-Step Pipeline Controller: Scan &rarr; Verify &rarr; Fix &rarr; Create GitHub PR
                 </h2>
                 <p class="text-xs text-slate-400 mt-0.5">
-                    Select the Gemini model and choose which specific Finding ID(s) from the scan to verify or patch.
+                    Select the Gemini model, verify and fix findings, and open a Pull Request on GitHub using <code class="text-purple-300 font-mono">carmona-google</code>.
                 </p>
             </div>
 
@@ -78,8 +121,33 @@
             </div>
         </div>
 
-        <!-- 3 Distinct Function Cards -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- 5 Distinct Function Cards (Import, Scan, Verify, Fix, Create Pull Request) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Function 0: IMPORT (cm import) -->
+            <div class="bg-slate-900/90 border border-cyan-700/60 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Step 0 &bull; Import</span>
+                        <code class="text-xs font-mono bg-cyan-950/80 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800">cm import</code>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-2">
+                        Import a local <code class="text-cyan-300">.json</code> report (Wiz Code, SARIF, Trivy, Snyk) into this session:
+                    </p>
+                    <input type="file" id="consoleImportFile" accept=".json,application/json"
+                        class="block w-full text-xs text-slate-400 mb-2 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-cyan-600/20 file:text-cyan-300 hover:file:bg-cyan-600/30 border border-slate-700 rounded bg-slate-950 p-1">
+                    <select id="consoleSourceTool" class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs font-mono rounded px-2.5 py-1.5">
+                        <option value="AUTO">Auto-Detect Format</option>
+                        <option value="WIZ_CODE">Wiz Code (SAST / SCA)</option>
+                        <option value="SARIF_SCANNER">SARIF v2.1.0</option>
+                        <option value="WIZ_PENTEST">Wiz Cloud Pentest</option>
+                        <option value="TRIVY">Trivy / Generic JSON</option>
+                    </select>
+                </div>
+                <button onclick="triggerImportFromPanel()" id="btnConsoleImport" class="w-full py-2 px-3 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center space-x-1.5">
+                    <span>Import JSON (cm import)</span>
+                </button>
+            </div>
+
             <!-- Function 1: SCAN (cm find) -->
             <div class="bg-slate-900/90 border border-slate-700 rounded-lg p-4 flex flex-col justify-between space-y-3">
                 <div>
@@ -145,6 +213,30 @@
                     <span>Fix Selected ID(s) (cm fix)</span>
                 </button>
             </div>
+
+            <!-- Function 4: CREATE PULL REQUEST (carmona-google) -->
+            <div class="bg-slate-900/90 border border-purple-600/70 rounded-lg p-4 flex flex-col justify-between space-y-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-purple-400">Step 4 &bull; GitHub PR</span>
+                        <code class="text-xs font-mono bg-purple-950/80 text-purple-300 px-2 py-0.5 rounded border border-purple-800">carmona-google</code>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-2">
+                        Push Fix changes to a clean topic branch and open a Pull Request on GitHub:
+                    </p>
+                    <input type="text" id="prGithubRepoInput"
+                        value="{{ scan.github_repo or 'carmona-google/codemender-demo-app' }}"
+                        placeholder="carmona-google/repo"
+                        class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs font-mono rounded px-2.5 py-1.5 mb-1.5">
+                    <input type="text" id="prGithubBranchInput"
+                        value="{{ scan.github_branch or 'main' }}"
+                        placeholder="Base branch (main)"
+                        class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs font-mono rounded px-2.5 py-1.5">
+                </div>
+                <button onclick="triggerPrFromPanel()" id="btnCreatePr" class="w-full py-2 px-3 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center space-x-1.5">
+                    <span>Create Pull Request (PR)</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -203,6 +295,12 @@
                         </span>
                         <span class="font-bold text-white text-sm">{{ finding.type }}</span>
                         <span class="text-xs px-2 py-0.5 rounded bg-slate-950 text-indigo-300 font-mono border border-slate-700">ID: {{ finding.id }}</span>
+                        {% if finding.source_tool %}
+                        <span class="text-xs px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 font-mono border border-cyan-800">IMPORTED: {{ finding.source_tool }}</span>
+                        {% endif %}
+                        {% if finding.external_id %}
+                        <span class="text-xs px-2 py-0.5 rounded bg-slate-950 text-slate-400 font-mono border border-slate-800">Ref: {{ finding.external_id }}</span>
+                        {% endif %}
                     </div>
 
                     <!-- Status Badges + Individual Verify / Fix Buttons -->
@@ -246,6 +344,26 @@
                     </div>
                     {% endif %}
                 </div>
+
+                <!-- Dedicated Vulnerability Description & Technical Overview Section -->
+                {% if finding.description %}
+                <div class="bg-indigo-950/25 border border-indigo-800/50 rounded-lg px-4 py-3 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center">
+                            <svg class="w-3.5 h-3.5 mr-1.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Vulnerability Description &amp; Technical Summary
+                        </span>
+                        {% if finding.cve %}
+                        <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-indigo-900/60 text-indigo-200 border border-indigo-700">
+                            {{ finding.cve }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">{{ finding.description }}</p>
+                </div>
+                {% endif %}
 
                 <!-- Detailed Sandbox Exploit Verification Telemetry Panel -->
                 {% if finding.verified and finding.verification_details %}
@@ -295,16 +413,21 @@
 
                 <!-- Remediated Unified Diff Container -->
                 {% if finding.remediated and patches and finding.patch_file %}
+                {% set raw_diff = patches.get(finding.patch_file.split('/')[-1]) or 'Diff pending extraction' %}
                 <div class="pt-2 border-t border-slate-800 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold text-emerald-300">
-                            &check; Validated Remediation Patch (<code class="font-mono">{{ finding.patch_file }}</code>):
-                        </span>
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-semibold text-emerald-300">
+                                &check; Validated Remediation Patch (<code class="font-mono">{{ finding.patch_file }}</code>):
+                            </span>
+                            <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-700/70">- Before (Vulnerable)</span>
+                            <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/70">+ After (Fixed)</span>
+                        </div>
                         {% if finding.remediated_by_model %}
                         <span class="text-xs font-mono text-slate-400">Authored by: <span class="text-cyan-300">{{ finding.remediated_by_model }}</span></span>
                         {% endif %}
                     </div>
-                    <div class="diff-block font-mono text-xs rounded-lg bg-slate-950 p-3 overflow-x-auto text-emerald-300 border border-emerald-900/50 whitespace-pre">{{ patches.get(finding.patch_file.split('/')[-1]) or 'Diff pending extraction' }}</div>
+                    <div class="diff-block font-mono text-xs rounded-lg bg-slate-950 py-2 overflow-x-auto border border-slate-800">{% for diff_line in raw_diff.splitlines() %}{% if diff_line.startswith('---') or diff_line.startswith('+++') %}<div class="diff-line-header px-3 py-0.5 text-slate-400 bg-slate-900/80 font-semibold whitespace-pre">{{ diff_line }}</div>{% elif diff_line.startswith('@@') %}<div class="diff-line-hunk px-3 py-0.5 text-cyan-400 bg-cyan-950/30 whitespace-pre">{{ diff_line }}</div>{% elif diff_line.startswith('-') %}<div class="diff-line-before px-3 py-0.5 bg-rose-950/60 text-rose-300 border-l-4 border-rose-500 whitespace-pre">{{ diff_line }}</div>{% elif diff_line.startswith('+') %}<div class="diff-line-after px-3 py-0.5 bg-emerald-950/60 text-emerald-300 border-l-4 border-emerald-500 whitespace-pre">{{ diff_line }}</div>{% else %}<div class="diff-line-context px-3 py-0.5 text-slate-400 whitespace-pre">{{ diff_line if diff_line else ' ' }}</div>{% endif %}{% endfor %}</div>
                 </div>
                 {% endif %}
             </div>
@@ -340,6 +463,43 @@
         });
     }
 
+    async function triggerImportFromPanel() {
+        const fileInput = document.getElementById('consoleImportFile');
+        const sourceTool = document.getElementById('consoleSourceTool').value;
+        const modelName = consoleModelSelect.value;
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Please select a local .json report file to import into this session.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('findings_file', fileInput.files[0]);
+        formData.append('source_tool', sourceTool);
+        formData.append('model_name', modelName);
+
+        sseIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400 mr-1.5 animate-ping"></span> Running IMPORT (${sourceTool})...`;
+        statusText.textContent = 'RUNNING';
+        stageText.textContent = 'IMPORT';
+
+        try {
+            const resp = await fetch(`/api/v1/scans/${scanId}/import`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                window.location.reload();
+            } else {
+                alert(`Import failed: ${data.error || 'Unknown error'}`);
+                sseIndicator.innerHTML = '<span class="text-rose-400 text-xs">Import Failed</span>';
+            }
+        } catch (err) {
+            alert(`Error invoking cm import: ${err}`);
+            sseIndicator.innerHTML = '<span class="text-rose-400 text-xs">Error</span>';
+        }
+    }
+
     function triggerVerifyFromPanel() {
         const sel = document.getElementById('verifyFindingSelect').value;
         let ids = [];
@@ -370,11 +530,29 @@
         runStageAction('fix', ids);
     }
 
-    async function runStageAction(stage, findingIds) {
+    function triggerPrFromPanel() {
+        const repoEl = document.getElementById('prGithubRepoInput');
+        const branchEl = document.getElementById('prGithubBranchInput');
+        const repoVal = repoEl ? repoEl.value.trim() : '';
+        const branchVal = branchEl ? branchEl.value.trim() : 'main';
+        if (!repoVal) {
+            alert('Please specify a target GitHub repository under carmona-google.');
+            return;
+        }
+        const ids = getCheckedFindingIds();
+        runStageAction('pr', ids, repoVal, branchVal || 'main');
+    }
+
+    async function runStageAction(stage, findingIds, githubRepo = null, githubBranch = null) {
         const modelName = consoleModelSelect.value;
+        const repoInputEl = document.getElementById('prGithubRepoInput');
+        const branchInputEl = document.getElementById('prGithubBranchInput');
+        const activeRepo = githubRepo || (repoInputEl ? repoInputEl.value.trim() : null);
+        const activeBranch = githubBranch || (branchInputEl ? branchInputEl.value.trim() : 'main');
+
         sseIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 mr-1.5 animate-ping"></span> Running ${stage.toUpperCase()} (${modelName})...`;
         statusText.textContent = 'RUNNING';
-        stageText.textContent = stage.toUpperCase();
+        stageText.textContent = stage === 'pr' ? 'PULL_REQUEST' : stage.toUpperCase();
 
         try {
             const resp = await fetch(`/api/v1/scans/${scanId}/stage`, {
@@ -383,7 +561,9 @@
                 body: JSON.stringify({
                     stage: stage,
                     finding_ids: findingIds && findingIds.length > 0 ? findingIds : null,
-                    model_name: modelName
+                    model_name: modelName,
+                    github_repo: activeRepo || null,
+                    github_branch: activeBranch || 'main'
                 })
             });
             const data = await resp.json();

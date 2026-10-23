@@ -40,7 +40,21 @@ resource "google_project_service" "enabled_apis" {
   disable_on_destroy = false
 }
 
-# Optional Argolis Organization Policy relaxations at the project scope
+# Argolis Organization Policy relaxations at the project scope
+resource "google_project_organization_policy" "allow_all_domains" {
+  count      = var.manage_argolis_org_policies ? 1 : 0
+  project    = local.effective_project_id
+  constraint = "iam.allowedPolicyMemberDomains"
+
+  list_policy {
+    allow {
+      all = true
+    }
+  }
+
+  depends_on = [google_project_service.enabled_apis]
+}
+
 resource "google_project_organization_policy" "allow_vm_external_ip" {
   count      = var.manage_argolis_org_policies ? 1 : 0
   project    = local.effective_project_id

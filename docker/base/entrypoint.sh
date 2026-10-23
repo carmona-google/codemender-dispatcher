@@ -28,6 +28,13 @@ fi
 
 "${CM_BIN}" --version || true
 
+run_import() {
+  local ext_json="${CODEMENDER_EXTERNAL_JSON:-${STATE_DIR}/external_findings.json}"
+  local src_tool="${CODEMENDER_SOURCE_TOOL:-AUTO}"
+  echo "[CODEMENDER-SANDBOX] Starting Phase 0: External Finding Import (cm import --from ${src_tool} --input ${ext_json})..."
+  "${CM_BIN}" import -y --from "${src_tool}" --input "${ext_json}" --model "${MODEL_NAME}"
+}
+
 run_find() {
   echo "[CODEMENDER-SANDBOX] Starting Phase 1: AST Scan & Vulnerability Finding with ${MODEL_NAME}..."
   "${CM_BIN}" find -y --model "${MODEL_NAME}"
@@ -44,6 +51,9 @@ run_fix() {
 }
 
 case "${STAGE}" in
+  import)
+    run_import
+    ;;
   find)
     run_find
     ;;
@@ -59,7 +69,7 @@ case "${STAGE}" in
     run_fix
     ;;
   *)
-    echo "Unknown stage: ${STAGE}. Expected 'find', 'verify', 'fix', or 'all'."
+    echo "Unknown stage: ${STAGE}. Expected 'import', 'find', 'verify', 'fix', or 'all'."
     exit 1
     ;;
 esac

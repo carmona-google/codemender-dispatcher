@@ -22,6 +22,31 @@ case "${COMMAND}" in
     echo "cm version ${CM_VERSION}"
     ;;
 
+  import)
+    echo "[MOCK-CM] Running 'cm import' (v${CM_VERSION}, model=${MODEL_NAME}) - Ingesting external scanner JSON report..."
+    cat <<EOF > "${OUTPUT_DIR}/findings.json"
+{
+  "scan_id": "${SESSION_ID}",
+  "cm_version": "${CM_VERSION}",
+  "model_name": "${MODEL_NAME}",
+  "findings": [
+    {
+      "id": "IMP-001-101",
+      "type": "SUPPLY_CHAIN_CI_INJECTION",
+      "cve": "CVE-2026-109618",
+      "severity": "CRITICAL",
+      "file": "composer.json",
+      "line": 12,
+      "snippet": "phpunit/phpunit: ^10.5.0 (vulnerable to CVE-2026-109618)",
+      "source_tool": "WIZ_CODE",
+      "external_id": "WIZ-VULN-2026-109618-COMPOSER"
+    }
+  ]
+}
+EOF
+    echo "[MOCK-CM] 'cm import' completed. Normalized 1 external finding."
+    ;;
+
   find)
     echo "[MOCK-CM] Running 'cm find' (v${CM_VERSION}, model=${MODEL_NAME}) - Parsing local AST & streaming targeted metadata..."
     cat <<EOF > "${OUTPUT_DIR}/findings.json"

@@ -151,13 +151,18 @@ class K8sJobOrchestrator:
         stage: str = "all",
         model_name: Optional[str] = None,
         finding_ids: Optional[list] = None,
+        external_json_path: Optional[Path] = None,
+        source_tool: Optional[str] = None,
     ) -> Generator[str, None, int]:
         """Provisions the GKE batch Job and streams execution logs."""
         active_model = model_name or os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")
         if self.batch_v1 is not None and self.core_v1 is not None:
             yield from self._run_k8s_job(session_id, image_name, stage)
         elif self.enable_mock_fallback:
-            yield from self._run_fallback(session_id, paths, stage, active_model, finding_ids)
+            yield from self._run_fallback(
+                session_id, paths, stage, active_model, finding_ids,
+                external_json_path=external_json_path, source_tool=source_tool,
+            )
         else:
             raise RuntimeError("Kubernetes API client unavailable and mock fallback is disabled.")
 
@@ -212,6 +217,8 @@ class K8sJobOrchestrator:
         stage: str,
         model_name: str = "gemini-4-argon",
         finding_ids: Optional[list] = None,
+        external_json_path: Optional[Path] = None,
+        source_tool: Optional[str] = None,
     ) -> Generator[str, None, int]:
         """Runs local dynamic AST scanner fallback."""
         yield f"[GKE-AUTOPILOT-MOCK] Falling back to local AST sandbox execution for session '{session_id}' (cm=v0.14.0, stage={stage}, model={model_name})...\n"
@@ -226,7 +233,15 @@ class K8sJobOrchestrator:
             stage=stage,
             finding_ids=finding_ids,
             model_name=model_name,
+            external_json_path=external_json_path,
+            source_tool=source_tool,
         )
+        if stage == "import":
+            yield (
+                f"[CODEMENDER-IMPORT] ({model_name}) Executed 'cm import' from "
+                f"{report.get('external_source_tool', 'EXTERNAL_TOOL')} ({report.get('imported_file')}). "
+                f"Imported {report.get('imported_findings_count', 0)} findings.\n"
+            )
         yield f"[CODEMENDER-AST] Scanned uploaded codebase. Found {report['total_vulnerabilities_found']} candidate vulnerabilities.\n"
         for f in report.get("findings", []):
             if f.get("verified"):

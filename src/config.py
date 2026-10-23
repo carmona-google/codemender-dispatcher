@@ -42,6 +42,11 @@ class Config:
     CODEMENDER_MODEL = os.environ.get("CODEMENDER_MODEL", "gemini-4-argon")
     CODEMENDER_CLI_VERSION = os.environ.get("CODEMENDER_CLI_VERSION", "0.14.0")
 
+    # GitHub Repository & PR integration (carmona-google account)
+    GITHUB_ACCOUNT = os.environ.get("GITHUB_ACCOUNT", "carmona-google")
+    GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+    GITHUB_DEFAULT_BRANCH = os.environ.get("GITHUB_DEFAULT_BRANCH", "main")
+
     # Upload constraints
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100 MB max archive size
     ALLOWED_EXTENSIONS = {"zip", "tar", "gz", "tgz"}

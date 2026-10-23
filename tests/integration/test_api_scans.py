@@ -154,7 +154,60 @@ class TestDispatcherAPI(unittest.TestCase):
         self.assertIn(b"Sandbox Verification &amp; PoC Exploit Telemetry", page_resp.data)
         self.assertIn(b"VERIFIED_EXPLOITABLE", page_resp.data)
 
+    def test_github_repo_ingestion_and_pr_step_after_fix(self):
+        """Tests GitHub repo input (carmona-google) -> Scan -> Verify -> Fix -> Create PR."""
+        # 0. List carmona-google repositories endpoint
+        repos_resp = self.client.get("/api/v1/scans/github/repos")
+        self.assertEqual(repos_resp.status_code, 200)
+        repos_data = repos_resp.get_json()
+        self.assertEqual(repos_data["account"], "carmona-google")
+        self.assertGreaterEqual(len(repos_data["repositories"]), 1)
+
+        # 1. Submit GitHub repository scan (short repo name auto-prefixed with carmona-google)
+        post_resp = self.client.post(
+            "/api/v1/scans",
+            json={
+                "github_repo": "codemender-demo-app",
+                "github_branch": "main",
+                "language_flavor": "python",
+                "model_name": "gemini-4-argon",
+                "stage": "all",
+            },
+        )
+        self.assertEqual(post_resp.status_code, 202)
+        resp_json = post_resp.get_json()
+        session_id = resp_json["session_id"]
+        self.assertEqual(resp_json["github_repo"], "carmona-google/codemender-demo-app")
+        self.assertEqual(resp_json["github_branch"], "main")
+
+        # 2. Verify Fix phase completed on cloned repository
+        status_fix = self.client.get(f"/api/v1/scans/{session_id}").get_json()
+        self.assertEqual(status_fix["status"], "COMPLETED")
+        self.assertGreaterEqual(status_fix["patches_applied"], 1)
+
+        # 3. Step 4: Create Pull Request over carmona-google/codemender-demo-app
+        pr_resp = self.client.post(
+            f"/api/v1/scans/{session_id}/pr",
+            json={"base_branch": "main"},
+        )
+        self.assertEqual(pr_resp.status_code, 200)
+        pr_json = pr_resp.get_json()
+        self.assertEqual(pr_json["status"], "COMPLETED")
+        self.assertEqual(pr_json["stage"], "PULL_REQUEST")
+        self.assertIn(
+            "https://github.com/carmona-google/codemender-demo-app/pull/",
+            pr_json["pr_url"],
+        )
+        self.assertIsNotNone(pr_json["pr_number"])
+
+        # 4. Verify Scan Detail Console displays Step 4 PR link
+        page_resp = self.client.get(f"/scans/{session_id}")
+        self.assertEqual(page_resp.status_code, 200)
+        self.assertIn(b"carmona-google/codemender-demo-app", page_resp.data)
+        self.assertIn(pr_json["pr_url"].encode("utf-8"), page_resp.data)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
